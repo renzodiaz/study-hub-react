@@ -1,15 +1,17 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState } from 'react';
+import SidebarLayout from './pages/Layouts/SidebarLayout';
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <>
-      <p className="text-green-600">Hello Tailwind CSS</p>
-    </>
-  )
+    <SidebarLayout
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={() => setSidebarOpen(!sidebarOpen)}
+    >
+      <h1>Hello World</h1>
+    </SidebarLayout>
+  );
 }
 
-export default App
+export default App;
