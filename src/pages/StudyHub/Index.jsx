@@ -1,3 +1,6 @@
+import ContentHeading from '@layouts/partials/ContentHeading';
+
+import PrimaryButton from '@components/PrimaryButton';
 import StudyCard from '@components/StudyCard';
 
 const studyList = [
@@ -58,15 +61,24 @@ const studyList = [
 ];
 
 const StudyHub = () => {
+  const handleClick = () => {
+    console.log('Open form!');
+  };
+
   return (
-    <ul
-      role="list"
-      className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-    >
-      {studyList.map((item) => (
-        <StudyCard key={item.name} item={item} />
-      ))}
-    </ul>
+    <>
+      <ContentHeading title="Study Hub">
+        <PrimaryButton title="New Learning" onButtonClick={handleClick} />
+      </ContentHeading>
+      <ul
+        role="list"
+        className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+      >
+        {studyList.map((item) => (
+          <StudyCard key={item.name} item={item} />
+        ))}
+      </ul>
+    </>
   );
 };
 
