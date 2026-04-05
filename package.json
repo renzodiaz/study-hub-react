@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare": "husky"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
@@ -21,6 +22,8 @@
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^9.39.4",
     "@tanstack/router-devtools": "^1.166.11",
     "@types/react": "^19.2.14",
@@ -30,6 +33,15 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
     "vite": "^8.0.1"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }
