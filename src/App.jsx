@@ -1,17 +1,13 @@
-import { useState } from 'react';
-import SidebarLayout from './pages/Layouts/SidebarLayout';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { routeTree } from './routeTree';
 
-function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+const router = createRouter({
+  routeTree,
+  defaultPreload: 'intent',
+});
 
-  return (
-    <SidebarLayout
-      sidebarOpen={sidebarOpen}
-      setSidebarOpen={() => setSidebarOpen(!sidebarOpen)}
-    >
-      <h1>Hello World</h1>
-    </SidebarLayout>
-  );
-}
+const App = () => {
+  return <RouterProvider router={router} />;
+};
 
 export default App;
