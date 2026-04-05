@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { classNames } from '../../utils/helpers';
+import { classNames } from '@utils/helpers';
 
 import {
   CalendarIcon,
@@ -11,7 +11,7 @@ import {
   BookOpenIcon,
 } from '@heroicons/react/24/outline';
 
-import NavLink from '../../components/NavLink';
+import NavLink from '@components/NavLink';
 
 const SidebarNav = ({ onLinkClick }) => {
   const navigation = [

@@ -1,15 +1,15 @@
 import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
 
-import SidebarLayout from './Layouts/SidebarLayout';
+import SidebarLayout from '@layouts/SidebarLayout';
 
 // Pages
-import Dashboard from './pages/Dashboard/Home';
-import Calendar from './pages/Calendar/Index';
-import Documents from './pages/Documents/Index';
-import Projects from './pages/Projects/Index';
-import Reports from './pages/Reports/Index';
-import Settings from './pages/Settings/Index';
-import StudyHub from './pages/StudyHub/Index';
+import Dashboard from '@pages/Dashboard/Home';
+import Calendar from '@pages/Calendar/Index';
+import Documents from '@pages/Documents/Index';
+import Projects from '@pages/Projects/Index';
+import Reports from '@pages/Reports/Index';
+import Settings from '@pages/Settings/Index';
+import StudyHub from '@pages/StudyHub/Index';
 
 // ─── Dashboard Layout Route (wraps all sidebar pages) ─────────────────────────
 const dashboardLayoutRoute = createRootRoute({
