@@ -1,5 +1,7 @@
+import { useDrawer } from '@hooks/useDrawer';
 import ContentHeading from '@layouts/partials/ContentHeading';
 
+import Form from './Form';
 import PrimaryButton from '@components/PrimaryButton';
 import StudyCard from '@components/StudyCard';
 
@@ -61,8 +63,14 @@ const studyList = [
 ];
 
 const StudyHub = () => {
+  const { openDrawer } = useDrawer();
+
   const handleClick = () => {
-    console.log('Open form!');
+    openDrawer(
+      <Form />,
+      'Add Learning',
+      'Here you can add what you want to learn and then add your notes and practice.',
+    );
   };
 
   return (
