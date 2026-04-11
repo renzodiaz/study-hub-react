@@ -70,6 +70,7 @@ const StudyHub = () => {
       <Form />,
       'Add Learning',
       'Here you can add what you want to learn and then add your notes and practice.',
+      'study-hub-form',
     );
   };
 

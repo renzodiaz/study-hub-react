@@ -8,7 +8,8 @@ import {
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const Drawer = () => {
-  const { title, description, isOpen, content, closeDrawer } = useDrawer();
+  const { title, description, formId, isOpen, content, closeDrawer } =
+    useDrawer();
 
   return (
     <Dialog open={isOpen} onClose={closeDrawer} className="relative z-40">
@@ -63,6 +64,7 @@ const Drawer = () => {
                   </button>
                   <button
                     type="submit"
+                    form={formId}
                     className="ml-4 inline-flex justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                   >
                     Save

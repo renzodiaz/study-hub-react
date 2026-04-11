@@ -8,24 +8,35 @@ export const DrawerProvider = ({ children }) => {
   const [description, setDescription] = useState(
     'Add some description to your panel.',
   );
+  const [formId, setFormId] = useState(null);
 
-  const openDrawer = (content, title, description) => {
+  const openDrawer = (content, title, description, formId) => {
     setIsOpen(true);
     setTitle(title);
     setDescription(description);
     setContent(content);
+    setFormId(formId);
   };
 
   const closeDrawer = () => {
     setIsOpen(false);
-    setTitle(title);
-    setDescription(description);
+    setTitle(null);
+    setDescription(null);
     setContent(null);
+    setFormId(null);
   };
 
   return (
     <DrawerContext.Provider
-      value={{ title, description, isOpen, content, openDrawer, closeDrawer }}
+      value={{
+        title,
+        description,
+        formId,
+        isOpen,
+        content,
+        openDrawer,
+        closeDrawer,
+      }}
     >
       {children}
     </DrawerContext.Provider>
