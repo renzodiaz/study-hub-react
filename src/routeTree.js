@@ -1,22 +1,37 @@
-import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 
+// Layouts
+import AuthLayout from '@layouts/AuthLayout';
 import SidebarLayout from '@layouts/SidebarLayout';
 
 // Pages
 import Dashboard from '@pages/Dashboard/Home';
 import Calendar from '@pages/Calendar/Index';
 import Documents from '@pages/Documents/Index';
+import Login from '@pages/Auth/Login';
 import Projects from '@pages/Projects/Index';
 import Reports from '@pages/Reports/Index';
 import Settings from '@pages/Settings/Index';
 import StudyHub from '@pages/StudyHub/Index';
 
+// ─── Root Route ─────────────────────────
+const rootRoute = createRootRoute();
+
 // ─── Dashboard Layout Route (wraps all sidebar pages) ─────────────────────────
-const dashboardLayoutRoute = createRootRoute({
+const dashboardLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'sidebar-layout',
   component: SidebarLayout,
 });
 
-// ─── Child Routes (inside sidebar layout) ─────────────────────────────────────
+// ─── Auth Layout Route (wraps all auth pages) ─────────────────────────
+const authLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'auth-layout',
+  component: AuthLayout,
+});
+
+// ─── Child Routes (inside layouts) ─────────────────────────────────────
 const dashboardRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: '/',
@@ -33,6 +48,12 @@ const documentsRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'documents',
   component: Documents,
+});
+
+const loginRoute = createRoute({
+  getParentRoute: () => authLayoutRoute,
+  path: '/login',
+  component: Login,
 });
 
 const projectsRoute = createRoute({
@@ -59,12 +80,15 @@ const studyHubRoute = createRoute({
   component: StudyHub,
 });
 
-export const routeTree = dashboardLayoutRoute.addChildren([
-  dashboardRoute,
-  calendarRoute,
-  documentsRoute,
-  projectsRoute,
-  reportsRoute,
-  settingsRoute,
-  studyHubRoute,
+export const routeTree = rootRoute.addChildren([
+  dashboardLayoutRoute.addChildren([
+    dashboardRoute,
+    calendarRoute,
+    documentsRoute,
+    projectsRoute,
+    reportsRoute,
+    settingsRoute,
+    studyHubRoute,
+  ]),
+  authLayoutRoute.addChildren([loginRoute]),
 ]);
