@@ -46,7 +46,7 @@ const Login = () => {
               }}
               children={(field) => (
                 <div>
-                  <InputText field={field} label="Email:" />
+                  <InputText field={field} label="Email:" autoComplete="true" />
                 </div>
               )}
             />

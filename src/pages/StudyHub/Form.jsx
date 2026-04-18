@@ -36,7 +36,7 @@ const Form = () => {
           }}
           children={(field) => (
             <div>
-              <InputText field={field} label="Name:" />
+              <InputText field={field} label="Name:" autoComplete="true" />
             </div>
           )}
         />
