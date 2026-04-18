@@ -1,17 +1,31 @@
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useForm } from '@tanstack/react-form';
 import InputText from '@components/InputText';
 import InputPassword from '@components/InputPassword';
+import { login } from '@/api/auth';
+import { useAuth } from '@hooks/useAuth';
 
 const Login = () => {
+  const { setLoggedIn } = useAuth();
+  const navigate = useNavigate();
+
+  const { mutate, isPending, error } = useMutation({
+    mutationFn: login,
+    onSuccess: ({ user }) => {
+      setLoggedIn(user);
+      navigate({ to: '/' });
+    },
+  });
+
   const form = useForm({
     defaultValues: {
       email: '',
       password: '',
     },
-    onSubmit: async ({ value }) => {
-      console.log(value);
-    },
+    onSubmit: ({ value }) => mutate(value),
   });
+
   return (
     <>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -26,6 +40,11 @@ const Login = () => {
       </div>
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-[480px]">
         <div className="bg-white px-6 py-12 shadow-sm sm:rounded-lg sm:px-12">
+          {error && (
+            <div className="mb-6 rounded-md bg-red-50 p-4">
+              <p className="text-sm text-red-700">{error.message}</p>
+            </div>
+          )}
           <form
             className="space-y-6"
             onSubmit={(e) => {
@@ -46,7 +65,11 @@ const Login = () => {
               }}
               children={(field) => (
                 <div>
-                  <InputText field={field} label="Email:" autoComplete="true" />
+                  <InputText
+                    field={field}
+                    label="Email:"
+                    autoComplete="email"
+                  />
                 </div>
               )}
             />
@@ -63,7 +86,11 @@ const Login = () => {
               }}
               children={(field) => (
                 <div>
-                  <InputPassword field={field} label="Password:" />
+                  <InputPassword
+                    field={field}
+                    label="Password:"
+                    autoComplete="current-password"
+                  />
                 </div>
               )}
             />
@@ -71,9 +98,10 @@ const Login = () => {
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                disabled={isPending}
+                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Sign in
+                {isPending ? 'Signing in...' : 'Sign in'}
               </button>
             </div>
           </form>

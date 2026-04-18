@@ -1,17 +1,23 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
-
 import { Bars3Icon, BellIcon } from '@heroicons/react/24/outline';
-
 import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/20/solid';
+import { useNavigate } from '@tanstack/react-router';
+import { useAuth } from '@hooks/useAuth';
+import { logout } from '@/api/auth';
 
 const Header = ({ setSidebarOpen }) => {
-  const userNavigation = [
-    { name: 'Your profile', href: '#' },
-    { name: 'Sign out', href: '#' },
-  ];
+  const { user, setLoggedOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await logout().catch(() => {});
+    setLoggedOut();
+    navigate({ to: '/login' });
+  };
+
   return (
     <div className="sticky top-0 z-40 lg:mx-auto lg:max-w-7xl lg:px-8">
       <div className="flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-xs sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
@@ -70,7 +76,7 @@ const Header = ({ setSidebarOpen }) => {
                     aria-hidden="true"
                     className="ml-4 text-sm/6 font-semibold text-gray-900"
                   >
-                    Tom Cook
+                    {user?.email}
                   </span>
                   <ChevronDownIcon
                     aria-hidden="true"
@@ -82,16 +88,23 @@ const Header = ({ setSidebarOpen }) => {
                 transition
                 className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg outline-1 outline-gray-900/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
               >
-                {userNavigation.map((item) => (
-                  <MenuItem key={item.name}>
-                    <a
-                      href={item.href}
-                      className="block px-3 py-1 text-sm/6 text-gray-900 data-focus:bg-gray-50 data-focus:outline-hidden"
-                    >
-                      {item.name}
-                    </a>
-                  </MenuItem>
-                ))}
+                <MenuItem>
+                  <a
+                    href="#"
+                    className="block px-3 py-1 text-sm/6 text-gray-900 data-focus:bg-gray-50 data-focus:outline-hidden"
+                  >
+                    Your profile
+                  </a>
+                </MenuItem>
+                <MenuItem>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="block w-full px-3 py-1 text-left text-sm/6 text-gray-900 data-focus:bg-gray-50 data-focus:outline-hidden"
+                  >
+                    Sign out
+                  </button>
+                </MenuItem>
               </MenuItems>
             </Menu>
           </div>

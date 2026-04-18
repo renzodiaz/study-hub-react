@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute } from '@tanstack/react-router';
+import { createRootRoute, createRoute, redirect } from '@tanstack/react-router';
 
 // Layouts
 import AuthLayout from '@layouts/AuthLayout';
@@ -22,6 +22,11 @@ const dashboardLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'sidebar-layout',
   component: SidebarLayout,
+  beforeLoad: ({ context }) => {
+    if (!context.user) {
+      throw redirect({ to: '/login' });
+    }
+  },
 });
 
 // ─── Auth Layout Route (wraps all auth pages) ─────────────────────────
@@ -54,6 +59,11 @@ const loginRoute = createRoute({
   getParentRoute: () => authLayoutRoute,
   path: '/login',
   component: Login,
+  beforeLoad: ({ context }) => {
+    if (context.user) {
+      throw redirect({ to: '/' });
+    }
+  },
 });
 
 const projectsRoute = createRoute({
