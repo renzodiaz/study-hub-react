@@ -4,11 +4,10 @@ import { DrawerContext } from './drawerContext';
 export const DrawerProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState(null);
-  const [title, setTitle] = useState('Title Panel');
-  const [description, setDescription] = useState(
-    'Add some description to your panel.',
-  );
+  const [title, setTitle] = useState(null);
+  const [description, setDescription] = useState(null);
   const [formId, setFormId] = useState(null);
+  const [isPending, setIsPending] = useState(false);
 
   const openDrawer = (content, title, description, formId) => {
     setIsOpen(true);
@@ -24,6 +23,7 @@ export const DrawerProvider = ({ children }) => {
     setDescription(null);
     setContent(null);
     setFormId(null);
+    setIsPending(false);
   };
 
   return (
@@ -33,9 +33,11 @@ export const DrawerProvider = ({ children }) => {
         description,
         formId,
         isOpen,
+        isPending,
         content,
         openDrawer,
         closeDrawer,
+        setIsPending,
       }}
     >
       {children}

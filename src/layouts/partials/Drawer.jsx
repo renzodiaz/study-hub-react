@@ -8,11 +8,22 @@ import {
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const Drawer = () => {
-  const { title, description, formId, isOpen, content, closeDrawer } =
-    useDrawer();
+  const {
+    title,
+    description,
+    formId,
+    isOpen,
+    isPending,
+    content,
+    closeDrawer,
+  } = useDrawer();
 
   return (
-    <Dialog open={isOpen} onClose={closeDrawer} className="relative z-40">
+    <Dialog
+      open={isOpen}
+      onClose={isPending ? () => {} : closeDrawer}
+      className="relative z-40"
+    >
       <DialogBackdrop
         transition
         className="fixed inset-0 bg-gray-500/75 transition-opacity duration-500 ease-in-out data-closed:opacity-0"
@@ -35,8 +46,9 @@ const Drawer = () => {
                       <div className="ml-3 flex h-7 items-center">
                         <button
                           type="button"
-                          onClick={() => closeDrawer()}
-                          className="relative rounded-md text-indigo-200 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                          onClick={isPending ? () => {} : closeDrawer}
+                          disabled={isPending}
+                          className="relative rounded-md text-indigo-200 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="absolute -inset-2.5" />
                           <span className="sr-only">Close panel</span>
@@ -57,17 +69,19 @@ const Drawer = () => {
                 <div className="flex shrink-0 justify-end px-4 py-4">
                   <button
                     type="button"
-                    onClick={() => closeDrawer()}
-                    className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs inset-ring inset-ring-gray-300 hover:bg-gray-50"
+                    onClick={isPending ? () => {} : closeDrawer}
+                    disabled={isPending}
+                    className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs inset-ring inset-ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     form={formId}
-                    className="ml-4 inline-flex justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    disabled={isPending}
+                    className="ml-4 inline-flex justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save
+                    {isPending ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>

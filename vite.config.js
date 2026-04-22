@@ -10,6 +10,7 @@ export default defineConfig({
     extensions: ['.js', '.jsx'],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@api': fileURLToPath(new URL('./src/api', import.meta.url)),
       '@components': fileURLToPath(
         new URL('./src/components', import.meta.url),
       ),
@@ -17,6 +18,7 @@ export default defineConfig({
       '@hooks': fileURLToPath(new URL('./src/hooks', import.meta.url)),
       '@layouts': fileURLToPath(new URL('./src/layouts', import.meta.url)),
       '@pages': fileURLToPath(new URL('./src/pages', import.meta.url)),
+      '@stores': fileURLToPath(new URL('./src/stores', import.meta.url)),
       '@utils': fileURLToPath(new URL('./src/utils', import.meta.url)),
       '@assets': fileURLToPath(new URL('./src/assets', import.meta.url)),
     },

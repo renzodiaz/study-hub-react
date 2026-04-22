@@ -1,17 +1,35 @@
+import { useEffect } from 'react';
 import { useForm } from '@tanstack/react-form';
+import { useMutation } from '@tanstack/react-query';
 
+import { createCourse } from '@api/courses';
+import { useCourseStore } from '@stores/courseStore';
+import { useDrawer } from '@hooks/useDrawer';
 import InputText from '@components/InputText';
 
 const Form = () => {
+  const { closeDrawer, setIsPending } = useDrawer();
+  const addCourse = useCourseStore((state) => state.addCourse);
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: createCourse,
+    onSuccess: (course) => {
+      addCourse(course);
+      closeDrawer();
+    },
+  });
+
+  useEffect(() => {
+    setIsPending(isPending);
+  }, [isPending, setIsPending]);
+
   const form = useForm({
     defaultValues: {
-      image_url: '', // will add later
+      image_url: '',
       name: '',
       description: '',
     },
-    onSubmit: async ({ value }) => {
-      console.log(value);
-    },
+    onSubmit: ({ value }) => mutate(value),
   });
 
   return (
@@ -36,7 +54,7 @@ const Form = () => {
           }}
           children={(field) => (
             <div>
-              <InputText field={field} label="Name:" autoComplete="true" />
+              <InputText field={field} label="Name:" autoComplete="on" />
             </div>
           )}
         />
@@ -47,7 +65,7 @@ const Form = () => {
               !value
                 ? 'Description is required!'
                 : value.length < 30
-                  ? 'description must be at least 30 characters'
+                  ? 'Description must be at least 30 characters'
                   : undefined,
           }}
           children={(field) => (
