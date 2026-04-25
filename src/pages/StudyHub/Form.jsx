@@ -1,20 +1,19 @@
 import { useEffect } from 'react';
 import { useForm } from '@tanstack/react-form';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { createCourse } from '@api/courses';
-import { useCourseStore } from '@stores/courseStore';
 import { useDrawer } from '@hooks/useDrawer';
 import InputText from '@components/InputText';
 
 const Form = () => {
   const { closeDrawer, setIsPending } = useDrawer();
-  const addCourse = useCourseStore((state) => state.addCourse);
+  const queryClient = useQueryClient();
 
   const { mutate, isPending } = useMutation({
     mutationFn: createCourse,
-    onSuccess: (course) => {
-      addCourse(course);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       closeDrawer();
     },
   });
