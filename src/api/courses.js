@@ -13,6 +13,19 @@ export const getCourses = async () => {
   return res.json();
 };
 
+export const getCourse = async (id) => {
+  const res = await fetch(`${API_BASE}/api/v1/courses/${id}`, {
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? 'Failed to fetch course');
+  }
+
+  return res.json();
+};
+
 export const createCourse = async (data) => {
   const payload = { ...data };
   if (!payload.image_url) delete payload.image_url;

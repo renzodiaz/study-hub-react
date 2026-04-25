@@ -13,6 +13,7 @@ import Projects from '@pages/Projects/Index';
 import Reports from '@pages/Reports/Index';
 import Settings from '@pages/Settings/Index';
 import StudyHub from '@pages/StudyHub/Index';
+import Editor from '@pages/StudyHub/Editor';
 
 // ─── Root Route ─────────────────────────
 const rootRoute = createRootRoute();
@@ -90,6 +91,12 @@ const studyHubRoute = createRoute({
   component: StudyHub,
 });
 
+const studyHubEditorRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'study-hub/$id',
+  component: Editor,
+});
+
 export const routeTree = rootRoute.addChildren([
   dashboardLayoutRoute.addChildren([
     dashboardRoute,
@@ -99,6 +106,7 @@ export const routeTree = rootRoute.addChildren([
     reportsRoute,
     settingsRoute,
     studyHubRoute,
+    studyHubEditorRoute,
   ]),
   authLayoutRoute.addChildren([loginRoute]),
 ]);

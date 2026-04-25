@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { Link } from '@tanstack/react-router';
 
 import {
   PencilSquareIcon,
@@ -52,13 +53,17 @@ const StudyCard = memo(({ item }) => {
               </>
             )}
           </a>
-          <a className="relative inline-flex w-0 flex-1 items-center justify-center gap-x-3 rounded-br-lg border border-transparent py-4 text-sm font-semibold text-gray-900 cursor-pointer">
+          <Link
+            to="/study-hub/$id"
+            params={{ id: String(item.id) }}
+            className="relative inline-flex w-0 flex-1 items-center justify-center gap-x-3 rounded-br-lg border border-transparent py-4 text-sm font-semibold text-gray-900"
+          >
             <PencilSquareIcon
               aria-hidden="true"
               className="size-5 text-indigo-400"
             />
             Edit
-          </a>
+          </Link>
         </div>
       </div>
     </li>
