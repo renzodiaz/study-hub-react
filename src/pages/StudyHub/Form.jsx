@@ -1,14 +1,42 @@
 import { useEffect } from 'react';
 import { useForm } from '@tanstack/react-form';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { createCourse } from '@api/courses';
+import { getCareerTracks } from '@api/careerTracks';
 import { useDrawer } from '@hooks/useDrawer';
 import InputText from '@components/InputText';
+import InputSelect from '@components/InputSelect';
+
+const LEVEL_OPTIONS = [
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'junior', label: 'Junior' },
+  { value: 'mid', label: 'Mid' },
+  { value: 'senior', label: 'Senior' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'principal', label: 'Principal' },
+];
+
+const slugify = (str) =>
+  str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-');
 
 const Form = () => {
   const { closeDrawer, setIsPending } = useDrawer();
   const queryClient = useQueryClient();
+
+  const { data: careerTracks = [], isLoading: tracksLoading } = useQuery({
+    queryKey: ['career_tracks'],
+    queryFn: getCareerTracks,
+  });
+
+  const trackOptions = careerTracks.map((t) => ({
+    value: t.id,
+    label: t.name,
+  }));
 
   const { mutate, isPending } = useMutation({
     mutationFn: createCourse,
@@ -24,11 +52,15 @@ const Form = () => {
 
   const form = useForm({
     defaultValues: {
-      image_url: '',
-      name: '',
+      title: '',
       description: '',
+      career_track_id: '',
+      level: 'beginner',
+      position: 0,
     },
-    onSubmit: ({ value }) => mutate(value),
+    onSubmit: ({ value }) => {
+      mutate({ ...value, slug: slugify(value.title) });
+    },
   });
 
   return (
@@ -42,33 +74,60 @@ const Form = () => {
         }}
       >
         <form.Field
-          name="name"
+          name="title"
           validators={{
             onChange: ({ value }) =>
               !value
-                ? 'Name is required!'
+                ? 'Title is required'
                 : value.length < 3
-                  ? 'Name must be at least 3 characters'
+                  ? 'Title must be at least 3 characters'
                   : undefined,
           }}
           children={(field) => (
             <div>
-              <InputText field={field} label="Name:" autoComplete="on" />
+              <InputText field={field} label="Title:" autoComplete="off" />
             </div>
           )}
         />
+
         <form.Field
-          name="description"
+          name="career_track_id"
           validators={{
             onChange: ({ value }) =>
-              !value
-                ? 'Description is required!'
-                : value.length < 30
-                  ? 'Description must be at least 30 characters'
-                  : undefined,
+              !value ? 'Career track is required' : undefined,
           }}
           children={(field) => (
-            <div className="mt-2">
+            <div className="mt-4">
+              <InputSelect
+                field={field}
+                label="Career Track:"
+                options={trackOptions}
+                placeholder={tracksLoading ? 'Loading...' : 'Select a track'}
+              />
+            </div>
+          )}
+        />
+
+        <form.Field
+          name="level"
+          validators={{
+            onChange: ({ value }) => (!value ? 'Level is required' : undefined),
+          }}
+          children={(field) => (
+            <div className="mt-4">
+              <InputSelect
+                field={field}
+                label="Level:"
+                options={LEVEL_OPTIONS}
+              />
+            </div>
+          )}
+        />
+
+        <form.Field
+          name="description"
+          children={(field) => (
+            <div className="mt-4">
               <InputText field={field} label="Description:" as="textarea" />
             </div>
           )}

@@ -1,7 +1,9 @@
+import { normalize } from '@utils/jsonapi';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 export const getCourses = async () => {
-  const res = await fetch(`${API_BASE}/api/v1/courses`, {
+  const res = await fetch(`${API_BASE}/api/v1/admin/courses`, {
     credentials: 'include',
   });
 
@@ -10,11 +12,11 @@ export const getCourses = async () => {
     throw new Error(body.message ?? 'Failed to fetch courses');
   }
 
-  return res.json();
+  return normalize(await res.json());
 };
 
 export const getCourse = async (id) => {
-  const res = await fetch(`${API_BASE}/api/v1/courses/${id}`, {
+  const res = await fetch(`${API_BASE}/api/v1/admin/courses/${id}`, {
     credentials: 'include',
   });
 
@@ -23,24 +25,21 @@ export const getCourse = async (id) => {
     throw new Error(body.message ?? 'Failed to fetch course');
   }
 
-  return res.json();
+  return normalize(await res.json());
 };
 
 export const createCourse = async (data) => {
-  const payload = { ...data };
-  if (!payload.image_url) delete payload.image_url;
-
-  const res = await fetch(`${API_BASE}/api/v1/courses`, {
+  const res = await fetch(`${API_BASE}/api/v1/admin/courses`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ course: data }),
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? 'Failed to create course');
+    throw new Error(body.errors?.join(', ') ?? 'Failed to create course');
   }
 
-  return res.json();
+  return normalize(await res.json());
 };

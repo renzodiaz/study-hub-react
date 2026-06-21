@@ -18,7 +18,7 @@ const Editor = () => {
     <div className="flex min-h-screen -mx-4 sm:-mx-6 lg:-mx-8 -my-10">
       <CourseSidebar />
       <div className="flex flex-1 flex-col">
-        <CurriculumHeader title={course?.name} />
+        <CurriculumHeader title={course?.title} />
         <main className="flex-1 p-8">
           {isLoading ? (
             <p className="text-sm text-gray-500">Loading...</p>
