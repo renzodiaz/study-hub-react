@@ -7,6 +7,7 @@ import { getCareerTracks } from '@api/careerTracks';
 import { useDrawer } from '@hooks/useDrawer';
 import InputText from '@components/InputText';
 import InputSelect from '@components/InputSelect';
+import { slugify } from '@utils/helpers';
 
 const LEVEL_OPTIONS = [
   { value: 'beginner', label: 'Beginner' },
@@ -16,13 +17,6 @@ const LEVEL_OPTIONS = [
   { value: 'staff', label: 'Staff' },
   { value: 'principal', label: 'Principal' },
 ];
-
-const slugify = (str) =>
-  str
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-');
 
 const Form = () => {
   const { closeDrawer, setIsPending } = useDrawer();

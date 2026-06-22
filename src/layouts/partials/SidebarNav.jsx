@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { classNames } from '@utils/helpers';
 
 import {
+  AcademicCapIcon,
   CalendarIcon,
   ChartPieIcon,
   Cog6ToothIcon,
@@ -16,6 +17,7 @@ import NavLink from '@components/NavLink';
 const SidebarNav = ({ onLinkClick }) => {
   const navigation = [
     { name: 'Dashboard', to: '/', icon: HomeIcon },
+    { name: 'Career Tracks', to: '/career-tracks', icon: AcademicCapIcon },
     { name: 'Study hub', to: '/study-hub', icon: BookOpenIcon },
     { name: 'Projects', to: '/projects', icon: FolderIcon },
     { name: 'Calendar', to: '/calendar', icon: CalendarIcon },
