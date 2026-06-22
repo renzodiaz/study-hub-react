@@ -29,6 +29,36 @@ export const login = async ({ email, password }) => {
   return { user: normalize(data.user), expires_at: data.expires_at };
 };
 
+export const register = async (data) => {
+  const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ user: data }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.errors?.join(', ') ?? 'Registration failed');
+  }
+
+  return normalize(await res.json());
+};
+
+export const updateProfile = async (data) => {
+  const res = await fetch(`${API_BASE}/api/v1/profile`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ user: data }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.errors?.join(', ') ?? 'Failed to update profile');
+  }
+  return normalize(await res.json());
+};
+
 export const logout = async () => {
   await fetch(`${API_BASE}/api/v1/auth/logout`, {
     method: 'DELETE',

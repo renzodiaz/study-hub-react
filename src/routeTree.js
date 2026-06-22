@@ -9,6 +9,7 @@ import Dashboard from '@pages/Dashboard/Home';
 import Calendar from '@pages/Calendar/Index';
 import Documents from '@pages/Documents/Index';
 import Login from '@pages/Auth/Login';
+import Register from '@pages/Auth/Register';
 import Projects from '@pages/Projects/Index';
 import Reports from '@pages/Reports/Index';
 import Settings from '@pages/Settings/Index';
@@ -67,6 +68,17 @@ const loginRoute = createRoute({
   },
 });
 
+const registerRoute = createRoute({
+  getParentRoute: () => authLayoutRoute,
+  path: '/register',
+  component: Register,
+  beforeLoad: ({ context }) => {
+    if (context.user) {
+      throw redirect({ to: '/' });
+    }
+  },
+});
+
 const projectsRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'projects',
@@ -108,5 +120,5 @@ export const routeTree = rootRoute.addChildren([
     studyHubRoute,
     studyHubEditorRoute,
   ]),
-  authLayoutRoute.addChildren([loginRoute]),
+  authLayoutRoute.addChildren([loginRoute, registerRoute]),
 ]);

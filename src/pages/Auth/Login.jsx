@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, Link } from '@tanstack/react-router';
 import { useForm } from '@tanstack/react-form';
 import InputText from '@components/InputText';
 import InputPassword from '@components/InputPassword';
@@ -108,12 +108,12 @@ const Login = () => {
 
           <p className="mt-10 text-center text-sm/6 text-gray-500">
             Not a member?{' '}
-            <a
-              href="#"
+            <Link
+              to="/register"
               className="font-semibold text-indigo-600 hover:text-indigo-500"
             >
-              Start a 14 day free trial
-            </a>
+              Create an account
+            </Link>
           </p>
         </div>
       </div>

@@ -69,7 +69,7 @@ const Header = ({ setSidebarOpen }) => {
                 <img
                   alt={user?.first_name ?? ''}
                   src={
-                    user?.avatar_url ??
+                    user?.avatar_url ||
                     `https://ui-avatars.com/api/?name=${encodeURIComponent(`${user?.first_name ?? ''} ${user?.last_name ?? ''}`)}&background=6366f1&color=fff`
                   }
                   className="size-8 rounded-full bg-gray-50 outline -outline-offset-1 outline-black/5"
