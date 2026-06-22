@@ -6,6 +6,7 @@ import { getLesson, updateLesson } from '@api/lessons';
 import { useDrawer } from '@hooks/useDrawer';
 import InputText from '@components/InputText';
 import Toggle from '@components/Toggle';
+import QuizBuilder from './QuizBuilder';
 
 const TYPE_LABELS = {
   video: 'Video',
@@ -134,16 +135,11 @@ const LessonFormFields = ({ lesson, onSave, isPending }) => {
             <p className="mt-1 text-xs text-gray-400">Markdown supported</p>
           </div>
         )}
-
-        {lesson.lesson_type === 'quiz_gate' && (
-          <div className="mt-4 rounded-md bg-amber-50 p-4">
-            <p className="text-sm text-amber-700">
-              Quiz questions for this lesson are managed in the Quiz Builder
-              (coming in a future release).
-            </p>
-          </div>
-        )}
       </form>
+
+      {lesson.lesson_type === 'quiz_gate' && (
+        <QuizBuilder lessonId={lesson.id} />
+      )}
     </div>
   );
 };
