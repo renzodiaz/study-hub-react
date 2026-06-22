@@ -38,7 +38,7 @@ const InputPassword = ({ field, label, autoComplete }) => {
       </div>
       {hasError ? (
         <p id={`${field.name}-error`} className="text-sm text-red-600">
-          {field.state.meta.errors.join(',')}
+          {field.state.meta.errors.join(', ')}
         </p>
       ) : null}
     </>

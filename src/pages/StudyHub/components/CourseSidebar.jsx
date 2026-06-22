@@ -44,7 +44,10 @@ const CourseSidebar = () => {
         ))}
       </nav>
       <div className="px-4">
-        <button className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+        <button
+          type="button"
+          className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+        >
           Submit for Review
         </button>
       </div>

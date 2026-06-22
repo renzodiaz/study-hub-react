@@ -9,7 +9,9 @@ export const getCareerTracks = async () => {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? 'Failed to fetch career tracks');
+    throw new Error(
+      body.error ?? body.errors?.join(', ') ?? 'Failed to fetch career tracks',
+    );
   }
 
   return normalize(await res.json());

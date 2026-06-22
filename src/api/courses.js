@@ -9,7 +9,9 @@ export const getCourses = async () => {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? 'Failed to fetch courses');
+    throw new Error(
+      body.error ?? body.errors?.join(', ') ?? 'Failed to fetch courses',
+    );
   }
 
   return normalize(await res.json());
@@ -22,7 +24,9 @@ export const getCourse = async (id) => {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? 'Failed to fetch course');
+    throw new Error(
+      body.error ?? body.errors?.join(', ') ?? 'Failed to fetch course',
+    );
   }
 
   return normalize(await res.json());

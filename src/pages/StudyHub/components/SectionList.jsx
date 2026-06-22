@@ -32,6 +32,7 @@ const SectionList = ({ courseId }) => {
 
   const { mutate: persistPosition } = useMutation({
     mutationFn: ({ id, position }) => updateModule(id, { position }),
+    onError: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const { mutate: addSection, isPending: addingSection } = useMutation({

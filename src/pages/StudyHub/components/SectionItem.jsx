@@ -58,6 +58,7 @@ const SectionItem = ({ section, index, courseId, onDelete }) => {
 
   const { mutate: persistLecturePosition } = useMutation({
     mutationFn: ({ id, position }) => updateLesson(id, { position }),
+    onError: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const { mutate: addLecture, isPending: addingLecture } = useMutation({
