@@ -151,6 +151,7 @@ const SectionItem = ({ section, index, courseId, onDelete }) => {
                         key={lecture.id}
                         lecture={lecture}
                         index={lIndex}
+                        courseId={courseId}
                         onDelete={() => removeLecture(lecture.id)}
                       />
                     ))}

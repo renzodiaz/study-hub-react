@@ -3,6 +3,12 @@ import { normalize } from '@utils/jsonapi';
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 const BASE = `${API_BASE}/api/v1/admin/lessons`;
 
+export const getLesson = async (id) => {
+  const res = await fetch(`${BASE}/${id}`, { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to fetch lesson');
+  return normalize(await res.json());
+};
+
 export const createLesson = async (data) => {
   const res = await fetch(BASE, {
     method: 'POST',

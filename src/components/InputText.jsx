@@ -1,7 +1,14 @@
 import { classNames } from '@utils/helpers';
 import { ExclamationCircleIcon } from '@heroicons/react/16/solid';
 
-const InputText = ({ field, label, autoComplete, as = 'input', rows = 4 }) => {
+const InputText = ({
+  field,
+  label,
+  autoComplete,
+  type = 'text',
+  as = 'input',
+  rows = 4,
+}) => {
   const Component = as === 'textarea' ? 'textarea' : 'input';
   const hasError = field.state.meta.isTouched && !field.state.meta.isValid;
 
@@ -17,6 +24,7 @@ const InputText = ({ field, label, autoComplete, as = 'input', rows = 4 }) => {
         <Component
           id={field.name}
           name={field.name}
+          type={as === 'textarea' ? undefined : type}
           rows={as === 'textarea' ? rows : undefined}
           value={field.state.value}
           onBlur={field.handleBlur}
