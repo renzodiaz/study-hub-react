@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSortable } from '@dnd-kit/sortable';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import {
@@ -12,13 +13,32 @@ import {
   DisclosureButton,
   DisclosurePanel,
 } from '@headlessui/react';
-import { Bars3Icon, ChevronUpIcon } from '@heroicons/react/20/solid';
+import {
+  Bars3Icon,
+  ChevronUpIcon,
+  TrashIcon,
+  CheckIcon,
+  XMarkIcon,
+} from '@heroicons/react/20/solid';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
+import { createLesson, updateLesson, deleteLesson } from '@api/lessons';
 import LectureItem from './LectureItem';
 
-const SectionItem = ({ section }) => {
-  const [lectures, setLectures] = useState(section.lectures);
+const LESSON_TYPES = [
+  { value: 'article', label: 'Article' },
+  { value: 'video', label: 'Video' },
+  { value: 'quiz_gate', label: 'Quiz Gate' },
+];
+
+const SectionItem = ({ section, index, courseId, onDelete }) => {
+  const queryClient = useQueryClient();
+  const queryKey = ['course_modules', courseId];
+  const lectures = section.lessons ?? [];
+
+  const [showAddLecture, setShowAddLecture] = useState(false);
+  const [newLectureTitle, setNewLectureTitle] = useState('');
+  const [newLectureType, setNewLectureType] = useState('article');
 
   const {
     attributes,
@@ -36,12 +56,48 @@ const SectionItem = ({ section }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const { mutate: persistLecturePosition } = useMutation({
+    mutationFn: ({ id, position }) => updateLesson(id, { position }),
+  });
+
+  const { mutate: addLecture, isPending: addingLecture } = useMutation({
+    mutationFn: createLesson,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      setShowAddLecture(false);
+      setNewLectureTitle('');
+      setNewLectureType('article');
+    },
+  });
+
+  const { mutate: removeLecture } = useMutation({
+    mutationFn: deleteLesson,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
   const handleLectureDragEnd = ({ active, over }) => {
     if (!over || active.id === over.id) return;
-    setLectures((prev) => {
-      const oldIndex = prev.findIndex((l) => l.id === active.id);
-      const newIndex = prev.findIndex((l) => l.id === over.id);
-      return arrayMove(prev, oldIndex, newIndex);
+    const oldIndex = lectures.findIndex((l) => l.id === active.id);
+    const newIndex = lectures.findIndex((l) => l.id === over.id);
+    const reordered = arrayMove([...lectures], oldIndex, newIndex);
+    queryClient.setQueryData(queryKey, (old) =>
+      (old ?? []).map((mod) =>
+        mod.id === section.id ? { ...mod, lessons: reordered } : mod,
+      ),
+    );
+    reordered.forEach((l, i) =>
+      persistLecturePosition({ id: l.id, position: i }),
+    );
+  };
+
+  const handleAddLectureSubmit = (e) => {
+    e.preventDefault();
+    if (!newLectureTitle.trim()) return;
+    addLecture({
+      course_module_id: section.id,
+      title: newLectureTitle.trim(),
+      lesson_type: newLectureType,
+      position: lectures.length,
     });
   };
 
@@ -62,7 +118,7 @@ const SectionItem = ({ section }) => {
               </button>
               <DisclosureButton className="flex flex-1 items-center gap-x-3 py-3 text-left">
                 <span className="flex-1 text-sm font-semibold text-gray-900">
-                  Section {section.order}: {section.title}
+                  Section {index + 1}: {section.title}
                 </span>
                 <ChevronUpIcon
                   className={`size-5 text-gray-400 transition-transform duration-200 ${
@@ -70,6 +126,14 @@ const SectionItem = ({ section }) => {
                   }`}
                 />
               </DisclosureButton>
+              <button
+                type="button"
+                onClick={onDelete}
+                aria-label="Delete section"
+                className="ml-3 shrink-0 text-gray-400 hover:text-red-500"
+              >
+                <TrashIcon className="size-4" />
+              </button>
             </div>
 
             <DisclosurePanel>
@@ -82,15 +146,68 @@ const SectionItem = ({ section }) => {
                     items={lectures.map((l) => l.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {lectures.map((lecture) => (
-                      <LectureItem key={lecture.id} lecture={lecture} />
+                    {lectures.map((lecture, lIndex) => (
+                      <LectureItem
+                        key={lecture.id}
+                        lecture={lecture}
+                        index={lIndex}
+                        onDelete={() => removeLecture(lecture.id)}
+                      />
                     ))}
                   </SortableContext>
                 </DndContext>
-                <button className="mt-2 flex items-center gap-x-1 text-sm font-semibold text-indigo-600 hover:text-indigo-500">
-                  <PlusIcon className="size-4" />
-                  Add Lecture
-                </button>
+
+                {showAddLecture ? (
+                  <form
+                    onSubmit={handleAddLectureSubmit}
+                    className="mt-2 flex items-center gap-x-2"
+                  >
+                    <input
+                      autoFocus
+                      value={newLectureTitle}
+                      onChange={(e) => setNewLectureTitle(e.target.value)}
+                      placeholder="Lecture title…"
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <select
+                      value={newLectureType}
+                      onChange={(e) => setNewLectureType(e.target.value)}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+                    >
+                      {LESSON_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      disabled={addingLecture || !newLectureTitle.trim()}
+                      className="inline-flex items-center rounded-md bg-indigo-600 px-2 py-1.5 text-white hover:bg-indigo-500 disabled:opacity-50"
+                    >
+                      <CheckIcon className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddLecture(false);
+                        setNewLectureTitle('');
+                      }}
+                      className="inline-flex items-center rounded-md border border-gray-300 px-2 py-1.5 text-gray-700 hover:bg-gray-50"
+                    >
+                      <XMarkIcon className="size-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddLecture(true)}
+                    className="mt-2 flex items-center gap-x-1 text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+                  >
+                    <PlusIcon className="size-4" />
+                    Add Lecture
+                  </button>
+                )}
               </div>
             </DisclosurePanel>
           </div>

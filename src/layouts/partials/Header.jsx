@@ -67,8 +67,11 @@ const Header = ({ setSidebarOpen }) => {
                 <span className="absolute -inset-1.5" />
                 <span className="sr-only">Open user menu</span>
                 <img
-                  alt=""
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                  alt={user?.first_name ?? ''}
+                  src={
+                    user?.avatar_url ??
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(`${user?.first_name ?? ''} ${user?.last_name ?? ''}`)}&background=6366f1&color=fff`
+                  }
                   className="size-8 rounded-full bg-gray-50 outline -outline-offset-1 outline-black/5"
                 />
                 <span className="hidden lg:flex lg:items-center">
@@ -76,7 +79,7 @@ const Header = ({ setSidebarOpen }) => {
                     aria-hidden="true"
                     className="ml-4 text-sm/6 font-semibold text-gray-900"
                   >
-                    {user?.email}
+                    {user?.first_name} {user?.last_name}
                   </span>
                   <ChevronDownIcon
                     aria-hidden="true"

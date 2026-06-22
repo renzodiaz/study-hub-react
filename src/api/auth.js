@@ -1,3 +1,5 @@
+import { normalize } from '@utils/jsonapi';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 export const getMe = async () => {
@@ -7,8 +9,7 @@ export const getMe = async () => {
 
   if (!res.ok) return null;
 
-  const data = await res.json();
-  return data.user ?? data;
+  return normalize(await res.json());
 };
 
 export const login = async ({ email, password }) => {
@@ -21,10 +22,11 @@ export const login = async ({ email, password }) => {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? 'Login failed');
+    throw new Error(body.error ?? 'Login failed');
   }
 
-  return res.json();
+  const data = await res.json();
+  return { user: normalize(data.user), expires_at: data.expires_at };
 };
 
 export const logout = async () => {

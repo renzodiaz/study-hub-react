@@ -1,9 +1,26 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Bars3Icon } from '@heroicons/react/20/solid';
-import { DocumentTextIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, TrashIcon } from '@heroicons/react/20/solid';
+import {
+  DocumentTextIcon,
+  VideoCameraIcon,
+  QuestionMarkCircleIcon,
+  PlusIcon,
+} from '@heroicons/react/24/outline';
 
-const LectureItem = ({ lecture }) => {
+const TYPE_ICONS = {
+  video: VideoCameraIcon,
+  article: DocumentTextIcon,
+  quiz_gate: QuestionMarkCircleIcon,
+};
+
+const TYPE_LABELS = {
+  video: 'Video',
+  article: 'Article',
+  quiz_gate: 'Quiz Gate',
+};
+
+const LectureItem = ({ lecture, index, onDelete }) => {
   const {
     attributes,
     listeners,
@@ -20,6 +37,8 @@ const LectureItem = ({ lecture }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const TypeIcon = TYPE_ICONS[lecture.lesson_type] ?? DocumentTextIcon;
+
   return (
     <div
       ref={setNodeRef}
@@ -35,13 +54,24 @@ const LectureItem = ({ lecture }) => {
       >
         <Bars3Icon className="size-5" aria-hidden="true" />
       </button>
-      <DocumentTextIcon className="size-5 text-gray-400 shrink-0" />
+      <TypeIcon className="size-5 text-gray-400 shrink-0" />
       <span className="flex-1 text-sm text-gray-700">
-        Lecture {lecture.order}: {lecture.title}
+        Lecture {index + 1}: {lecture.title}
       </span>
-      <button className="flex items-center gap-x-1 rounded border border-gray-900 px-3 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50">
+      <span className="shrink-0 text-xs text-gray-400">
+        {TYPE_LABELS[lecture.lesson_type] ?? lecture.lesson_type}
+      </span>
+      <button className="flex items-center gap-x-1 rounded border border-gray-900 px-3 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50 shrink-0">
         <PlusIcon className="size-3" />
         Content
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label="Delete lecture"
+        className="shrink-0 text-gray-400 hover:text-red-500"
+      >
+        <TrashIcon className="size-4" />
       </button>
     </div>
   );
