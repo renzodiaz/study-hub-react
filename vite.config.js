@@ -6,6 +6,16 @@ import { fileURLToPath, URL } from 'node:url';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    // Proxy API calls to the Rails backend so the browser stays same-origin
+    // (cookies just work, no CORS in dev). Override with VITE_API_PROXY.
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY ?? 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     extensions: ['.js', '.jsx'],
     alias: {
