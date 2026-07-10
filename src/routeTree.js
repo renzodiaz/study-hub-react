@@ -18,6 +18,7 @@ import Editor from '@pages/StudyHub/Editor';
 import CareerTracks from '@pages/CareerTracks/Index';
 import Catalog from '@pages/Learn/Catalog';
 import TrackDetail from '@pages/Learn/TrackDetail';
+import MyLearning from '@pages/Learn/MyLearning';
 
 // ─── Root Route ─────────────────────────
 const rootRoute = createRootRoute();
@@ -118,6 +119,20 @@ const learnTrackRoute = createRoute({
   component: TrackDetail,
 });
 
+const myLearningRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'my-learning',
+  component: MyLearning,
+});
+
+// Same track detail page, reached from My learning — keeps that section
+// active and the back link pointing back to My learning.
+const myLearningTrackRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'my-learning/$trackId',
+  component: TrackDetail,
+});
+
 const studyHubRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'study-hub',
@@ -135,6 +150,8 @@ export const routeTree = rootRoute.addChildren([
     dashboardRoute,
     learnCatalogRoute,
     learnTrackRoute,
+    myLearningRoute,
+    myLearningTrackRoute,
     careerTracksRoute,
     calendarRoute,
     documentsRoute,
