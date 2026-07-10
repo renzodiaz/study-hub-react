@@ -16,6 +16,8 @@ import Settings from '@pages/Settings/Index';
 import StudyHub from '@pages/StudyHub/Index';
 import Editor from '@pages/StudyHub/Editor';
 import CareerTracks from '@pages/CareerTracks/Index';
+import Catalog from '@pages/Learn/Catalog';
+import TrackDetail from '@pages/Learn/TrackDetail';
 
 // ─── Root Route ─────────────────────────
 const rootRoute = createRootRoute();
@@ -104,6 +106,18 @@ const careerTracksRoute = createRoute({
   component: CareerTracks,
 });
 
+const learnCatalogRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'learn',
+  component: Catalog,
+});
+
+const learnTrackRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'learn/$trackId',
+  component: TrackDetail,
+});
+
 const studyHubRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'study-hub',
@@ -119,6 +133,8 @@ const studyHubEditorRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   dashboardLayoutRoute.addChildren([
     dashboardRoute,
+    learnCatalogRoute,
+    learnTrackRoute,
     careerTracksRoute,
     calendarRoute,
     documentsRoute,
