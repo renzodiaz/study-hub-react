@@ -1,8 +1,12 @@
-import { useParams, Link } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftIcon, ClockIcon } from '@heroicons/react/20/solid';
+import { useParams, useLocation, Link } from '@tanstack/react-router';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowLeftIcon,
+  ClockIcon,
+  CheckCircleIcon,
+} from '@heroicons/react/20/solid';
 
-import { getTrack, getTrackModules } from '@api/learn';
+import { getTrack, getTrackModules, getEnrollments, enroll } from '@api/learn';
 
 const LEVEL_LABELS = {
   beginner: 'Beginner',
@@ -41,6 +45,13 @@ const ModuleRow = ({ module, index }) => (
 const TrackDetail = () => {
   const { trackId } = useParams({ strict: false });
 
+  // The page is shared by /learn/:id and /my-learning/:id — point "back" at
+  // whichever section the learner came from.
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const fromMyLearning = pathname.startsWith('/my-learning');
+  const backTo = fromMyLearning ? '/my-learning' : '/learn';
+  const backLabel = fromMyLearning ? 'My learning' : 'All careers';
+
   const { data: track, isLoading: trackLoading } = useQuery({
     queryKey: ['learn', 'track', trackId],
     queryFn: () => getTrack(trackId),
@@ -56,34 +67,69 @@ const TrackDetail = () => {
     queryFn: () => getTrackModules(trackId),
   });
 
+  const queryClient = useQueryClient();
+
+  const { data: enrollments = [] } = useQuery({
+    queryKey: ['learn', 'enrollments'],
+    queryFn: getEnrollments,
+  });
+
+  const enrollment = enrollments.find((e) => e.career_track?.id === trackId);
+
+  const { mutate: enrollMutate, isPending: enrolling } = useMutation({
+    mutationFn: () => enroll(trackId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['learn', 'enrollments'] }),
+  });
+
   return (
     <div className="space-y-8">
       <Link
-        to="/learn"
+        to={backTo}
         className="inline-flex items-center gap-x-1 text-sm font-medium text-gray-500 hover:text-gray-700"
       >
         <ArrowLeftIcon className="size-4" />
-        All careers
+        {backLabel}
       </Link>
 
       {trackLoading ? (
         <p className="text-sm text-gray-500">Loading...</p>
       ) : (
         track && (
-          <div className="flex items-start gap-x-4">
-            <div
-              className="flex size-14 shrink-0 items-center justify-center rounded-xl text-2xl font-semibold text-white"
-              style={{ backgroundColor: track.color ?? '#6366f1' }}
-            >
-              {track.icon ?? '📚'}
+          <div className="flex items-start justify-between gap-x-4">
+            <div className="flex items-start gap-x-4">
+              <div
+                className="flex size-14 shrink-0 items-center justify-center rounded-xl text-2xl font-semibold text-white"
+                style={{ backgroundColor: track.color ?? '#6366f1' }}
+              >
+                {track.icon ?? '📚'}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                  {track.name}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-gray-500">
+                  {track.description}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                {track.name}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-gray-500">
-                {track.description}
-              </p>
+
+            <div className="shrink-0">
+              {enrollment ? (
+                <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
+                  <CheckCircleIcon className="size-5" />
+                  Enrolled · {enrollment.progress?.percent ?? 0}%
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => enrollMutate()}
+                  disabled={enrolling}
+                  className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
+                >
+                  {enrolling ? 'Enrolling…' : 'Enroll'}
+                </button>
+              )}
             </div>
           </div>
         )

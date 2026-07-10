@@ -18,6 +18,7 @@ const SidebarNav = ({ onLinkClick }) => {
   const navigation = [
     { name: 'Dashboard', to: '/', icon: HomeIcon },
     { name: 'Explore', to: '/learn', icon: AcademicCapIcon },
+    { name: 'My learning', to: '/my-learning', icon: BookOpenIcon },
     { name: 'Career Tracks', to: '/career-tracks', icon: AcademicCapIcon },
     { name: 'Study hub', to: '/study-hub', icon: BookOpenIcon },
     { name: 'Projects', to: '/projects', icon: FolderIcon },
