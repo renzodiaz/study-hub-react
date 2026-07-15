@@ -19,6 +19,8 @@ import CareerTracks from '@pages/CareerTracks/Index';
 import Catalog from '@pages/Learn/Catalog';
 import TrackDetail from '@pages/Learn/TrackDetail';
 import MyLearning from '@pages/Learn/MyLearning';
+import ModuleDetail from '@pages/Learn/ModuleDetail';
+import LessonViewer from '@pages/Learn/LessonViewer';
 
 // ─── Root Route ─────────────────────────
 const rootRoute = createRootRoute();
@@ -133,6 +135,18 @@ const myLearningTrackRoute = createRoute({
   component: TrackDetail,
 });
 
+const learnModuleRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'learn/$trackId/$courseId',
+  component: ModuleDetail,
+});
+
+const lessonRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'lessons/$lessonId',
+  component: LessonViewer,
+});
+
 const studyHubRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'study-hub',
@@ -150,6 +164,8 @@ export const routeTree = rootRoute.addChildren([
     dashboardRoute,
     learnCatalogRoute,
     learnTrackRoute,
+    learnModuleRoute,
+    lessonRoute,
     myLearningRoute,
     myLearningTrackRoute,
     careerTracksRoute,
