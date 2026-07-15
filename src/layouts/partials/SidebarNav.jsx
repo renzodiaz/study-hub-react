@@ -13,23 +13,29 @@ import {
 } from '@heroicons/react/24/outline';
 
 import NavLink from '@components/NavLink';
+import { useAuth } from '@hooks/useAuth';
+
+const NAVIGATION = [
+  { name: 'Dashboard', to: '/', icon: HomeIcon },
+  { name: 'Explore', to: '/learn', icon: AcademicCapIcon },
+  { name: 'My learning', to: '/my-learning', icon: BookOpenIcon },
+  {
+    name: 'Career Tracks',
+    to: '/career-tracks',
+    icon: AcademicCapIcon,
+    adminOnly: true,
+  },
+  { name: 'Study hub', to: '/study-hub', icon: BookOpenIcon, adminOnly: true },
+  { name: 'Projects', to: '/projects', icon: FolderIcon },
+  { name: 'Calendar', to: '/calendar', icon: CalendarIcon },
+  { name: 'Documents', to: '/documents', icon: DocumentDuplicateIcon },
+  { name: 'Reports', to: '/reports', icon: ChartPieIcon },
+];
 
 const SidebarNav = ({ onLinkClick }) => {
-  const navigation = [
-    { name: 'Dashboard', to: '/', icon: HomeIcon },
-    { name: 'Explore', to: '/learn', icon: AcademicCapIcon },
-    { name: 'My learning', to: '/my-learning', icon: BookOpenIcon },
-    { name: 'Career Tracks', to: '/career-tracks', icon: AcademicCapIcon },
-    { name: 'Study hub', to: '/study-hub', icon: BookOpenIcon },
-    { name: 'Projects', to: '/projects', icon: FolderIcon },
-    { name: 'Calendar', to: '/calendar', icon: CalendarIcon },
-    {
-      name: 'Documents',
-      to: '/documents',
-      icon: DocumentDuplicateIcon,
-    },
-    { name: 'Reports', to: '/reports', icon: ChartPieIcon },
-  ];
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const navigation = NAVIGATION.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <ul role="list" className="flex flex-1 flex-col gap-y-7">

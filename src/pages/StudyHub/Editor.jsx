@@ -2,17 +2,22 @@ import { useParams } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { getCourse } from '@api/courses';
+import { useRequireAdmin } from '@hooks/useRequireAdmin';
 import CourseSidebar from './components/CourseSidebar';
 import CurriculumHeader from './components/CurriculumHeader';
 import SectionList from './components/SectionList';
 
 const Editor = () => {
+  const isAdmin = useRequireAdmin();
   const { id } = useParams({ strict: false });
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', id],
     queryFn: () => getCourse(id),
+    enabled: isAdmin,
   });
+
+  if (!isAdmin) return null;
 
   return (
     <div className="flex min-h-screen -mx-4 sm:-mx-6 lg:-mx-8 -my-10">

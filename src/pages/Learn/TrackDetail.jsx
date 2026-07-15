@@ -17,28 +17,36 @@ const LEVEL_LABELS = {
   principal: 'Principal',
 };
 
-const ModuleRow = ({ module, index }) => (
-  <li className="flex items-start gap-x-4 py-5">
-    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-600">
-      {index + 1}
-    </div>
-    <div className="min-w-0 flex-1">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h3 className="text-sm font-semibold text-gray-900">{module.title}</h3>
-        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
-          {LEVEL_LABELS[module.level] ?? module.level}
-        </span>
-        {module.estimated_hours != null && (
-          <span className="inline-flex items-center gap-x-1 text-xs text-gray-500">
-            <ClockIcon className="size-3.5" />
-            {module.estimated_hours}h
-          </span>
-        )}
+const ModuleRow = ({ module, index, trackId }) => (
+  <li>
+    <Link
+      to="/learn/$trackId/$courseId"
+      params={{ trackId: String(trackId), courseId: String(module.id) }}
+      className="flex items-start gap-x-4 py-5 hover:bg-gray-50"
+    >
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-600">
+        {index + 1}
       </div>
-      <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-        {module.description}
-      </p>
-    </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h3 className="text-sm font-semibold text-gray-900">
+            {module.title}
+          </h3>
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+            {LEVEL_LABELS[module.level] ?? module.level}
+          </span>
+          {module.estimated_hours != null && (
+            <span className="inline-flex items-center gap-x-1 text-xs text-gray-500">
+              <ClockIcon className="size-3.5" />
+              {module.estimated_hours}h
+            </span>
+          )}
+        </div>
+        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+          {module.description}
+        </p>
+      </div>
+    </Link>
   </li>
 );
 
@@ -150,7 +158,12 @@ const TrackDetail = () => {
         ) : (
           <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white px-6 shadow-sm">
             {modules.map((module, index) => (
-              <ModuleRow key={module.id} module={module} index={index} />
+              <ModuleRow
+                key={module.id}
+                module={module}
+                index={index}
+                trackId={trackId}
+              />
             ))}
           </ul>
         )}

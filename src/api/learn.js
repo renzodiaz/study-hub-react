@@ -39,6 +39,31 @@ export const getTrack = (trackId) =>
 export const getTrackModules = (trackId) =>
   get(`/api/v1/career_tracks/${trackId}/courses`, 'Failed to load modules');
 
+// A single module (course) and its sections (with lesson metadata).
+export const getModule = (trackId, courseId) =>
+  get(
+    `/api/v1/career_tracks/${trackId}/courses/${courseId}`,
+    'Failed to load module',
+  );
+
+export const getModuleSections = (trackId, courseId) =>
+  get(
+    `/api/v1/career_tracks/${trackId}/courses/${courseId}/course_modules`,
+    'Failed to load sections',
+  );
+
+// A single lesson's full content (flat, access-gated).
+export const getLesson = (lessonId) =>
+  get(`/api/v1/lessons/${lessonId}`, 'Failed to load lesson');
+
+export const completeLesson = (lessonId) =>
+  send(
+    '/api/v1/lesson_progresses',
+    'POST',
+    { lesson_progress: { lesson_id: lessonId } },
+    'Failed to mark lesson complete',
+  );
+
 // Enrollments — the current user's learning.
 export const getEnrollments = () =>
   get('/api/v1/enrollments', 'Failed to load your enrollments');
