@@ -4,6 +4,7 @@ import { PencilSquareIcon, TrashIcon } from '@heroicons/react/20/solid';
 
 import { getCareerTracks, deleteCareerTrack } from '@api/careerTracks';
 import { useDrawer } from '@hooks/useDrawer';
+import { useRequireAdmin } from '@hooks/useRequireAdmin';
 import ContentHeading from '@layouts/partials/ContentHeading';
 import PrimaryButton from '@components/PrimaryButton';
 import CareerTrackForm from './CareerTrackForm';
@@ -47,12 +48,14 @@ const ConfirmDelete = ({ onConfirm, isPending }) => {
 };
 
 const CareerTracks = () => {
+  const isAdmin = useRequireAdmin();
   const { openDrawer } = useDrawer();
   const queryClient = useQueryClient();
 
   const { data: tracks = [], isLoading } = useQuery({
     queryKey: ['career_tracks'],
     queryFn: getCareerTracks,
+    enabled: isAdmin,
   });
 
   const { mutate: removeTrack, isPending: deleting } = useMutation({
@@ -81,6 +84,8 @@ const CareerTracks = () => {
     },
     [openDrawer],
   );
+
+  if (!isAdmin) return null;
 
   return (
     <>

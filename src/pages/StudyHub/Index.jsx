@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { useDrawer } from '@hooks/useDrawer';
+import { useRequireAdmin } from '@hooks/useRequireAdmin';
 import { getCourses } from '@api/courses';
 import ContentHeading from '@layouts/partials/ContentHeading';
 import PrimaryButton from '@components/PrimaryButton';
@@ -9,11 +10,13 @@ import StudyCard from '@components/StudyCard';
 import Form from './Form';
 
 const StudyHub = () => {
+  const isAdmin = useRequireAdmin();
   const { openDrawer } = useDrawer();
 
   const { isLoading, data: courses = [] } = useQuery({
     queryKey: ['courses'],
     queryFn: getCourses,
+    enabled: isAdmin,
   });
 
   const handleClick = useCallback(() => {
@@ -24,6 +27,8 @@ const StudyHub = () => {
       'study-hub-form',
     );
   }, [openDrawer]);
+
+  if (!isAdmin) return null;
 
   return (
     <>
