@@ -8,6 +8,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   LockClosedIcon,
+  AcademicCapIcon,
 } from '@heroicons/react/20/solid';
 
 import { getModule, getModuleSections } from '@api/learn';
@@ -135,6 +136,14 @@ const ModuleDetail = () => {
             <p className="mt-2 max-w-2xl text-sm text-gray-500">
               {module.description}
             </p>
+            <Link
+              to="/learn/$trackId/$courseId/assessment"
+              params={{ trackId, courseId }}
+              className="mt-4 inline-flex items-center gap-x-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+            >
+              <AcademicCapIcon className="size-4" />
+              Credential assessment
+            </Link>
           </div>
         )
       )}
