@@ -22,6 +22,8 @@ import MyLearning from '@pages/Learn/MyLearning';
 import ModuleDetail from '@pages/Learn/ModuleDetail';
 import LessonViewer from '@pages/Learn/LessonViewer';
 import Achievements from '@pages/Achievements/Index';
+import AssessmentIntro from '@pages/Assessment/Intro';
+import AssessmentAttemptShell from '@pages/Assessment/AttemptShell';
 import VerifyCertificate from '@pages/Verify/Certificate';
 
 // ─── Root Route ─────────────────────────
@@ -149,6 +151,19 @@ const lessonRoute = createRoute({
   component: LessonViewer,
 });
 
+// Credential assessment intro (start/resume) and the active attempt shell.
+const assessmentIntroRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'learn/$trackId/$courseId/assessment',
+  component: AssessmentIntro,
+});
+
+const assessmentAttemptRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'assessment-attempts/$attemptId',
+  component: AssessmentAttemptShell,
+});
+
 const achievementsRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'achievements',
@@ -181,6 +196,8 @@ export const routeTree = rootRoute.addChildren([
     learnTrackRoute,
     learnModuleRoute,
     lessonRoute,
+    assessmentIntroRoute,
+    assessmentAttemptRoute,
     myLearningRoute,
     myLearningTrackRoute,
     achievementsRoute,
