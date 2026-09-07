@@ -83,3 +83,14 @@ export const unenroll = (enrollmentId) =>
     null,
     'Failed to unenroll',
   );
+
+// Credentials — earned certificates and seniority badges.
+export const getCertificates = () =>
+  get('/api/v1/certificates', 'Failed to load certificates');
+
+export const getSeniorityBadges = () =>
+  get('/api/v1/seniority_badges', 'Failed to load badges');
+
+// Public certificate verification (no auth required).
+export const getPublicCertificate = (token) =>
+  get(`/api/v1/public/certificates/${token}`, 'Certificate not found');

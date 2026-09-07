@@ -21,6 +21,8 @@ import TrackDetail from '@pages/Learn/TrackDetail';
 import MyLearning from '@pages/Learn/MyLearning';
 import ModuleDetail from '@pages/Learn/ModuleDetail';
 import LessonViewer from '@pages/Learn/LessonViewer';
+import Achievements from '@pages/Achievements/Index';
+import VerifyCertificate from '@pages/Verify/Certificate';
 
 // ─── Root Route ─────────────────────────
 const rootRoute = createRootRoute();
@@ -147,6 +149,19 @@ const lessonRoute = createRoute({
   component: LessonViewer,
 });
 
+const achievementsRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'achievements',
+  component: Achievements,
+});
+
+// Public credential verification — no auth, no app shell.
+const verifyCertificateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'verify/$token',
+  component: VerifyCertificate,
+});
+
 const studyHubRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'study-hub',
@@ -168,6 +183,7 @@ export const routeTree = rootRoute.addChildren([
     lessonRoute,
     myLearningRoute,
     myLearningTrackRoute,
+    achievementsRoute,
     careerTracksRoute,
     calendarRoute,
     documentsRoute,
@@ -178,4 +194,5 @@ export const routeTree = rootRoute.addChildren([
     studyHubEditorRoute,
   ]),
   authLayoutRoute.addChildren([loginRoute, registerRoute]),
+  verifyCertificateRoute,
 ]);

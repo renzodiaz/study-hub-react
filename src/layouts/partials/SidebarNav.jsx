@@ -10,6 +10,7 @@ import {
   FolderIcon,
   HomeIcon,
   BookOpenIcon,
+  TrophyIcon,
 } from '@heroicons/react/24/outline';
 
 import NavLink from '@components/NavLink';
@@ -19,6 +20,7 @@ const NAVIGATION = [
   { name: 'Dashboard', to: '/', icon: HomeIcon },
   { name: 'Explore', to: '/learn', icon: AcademicCapIcon },
   { name: 'My learning', to: '/my-learning', icon: BookOpenIcon },
+  { name: 'Achievements', to: '/achievements', icon: TrophyIcon },
   {
     name: 'Career Tracks',
     to: '/career-tracks',
