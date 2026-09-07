@@ -1,7 +1,8 @@
-import { useParams, useRouter } from '@tanstack/react-router';
+import { useParams, useRouter, Link } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   CheckCircleIcon,
   LockClosedIcon,
 } from '@heroicons/react/20/solid';
@@ -56,14 +57,11 @@ const LessonViewer = () => {
     retry: false,
   });
 
-  const {
-    mutate: markComplete,
-    isPending,
-    isSuccess,
-  } = useMutation({
+  const { mutate: markComplete, isPending } = useMutation({
     mutationFn: () => completeLesson(lessonId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['learn', 'enrollments'] }),
+    // Refetch this lesson (so `completed` flips) and everything else that
+    // shows progress — the curriculum, enrollments, dashboard.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['learn'] }),
   });
 
   if (isLoading) {
@@ -114,9 +112,9 @@ const LessonViewer = () => {
 
       <LessonBody lesson={lesson} />
 
-      {!isQuiz && (
-        <div className="flex justify-end">
-          {isSuccess ? (
+      <div className="flex items-center justify-end gap-x-3">
+        {!isQuiz &&
+          (lesson.completed ? (
             <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3.5 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
               <CheckCircleIcon className="size-5" />
               Completed
@@ -130,9 +128,19 @@ const LessonViewer = () => {
             >
               {isPending ? 'Saving…' : 'Mark as complete'}
             </button>
-          )}
-        </div>
-      )}
+          ))}
+
+        {lesson.next_lesson_id && (
+          <Link
+            to="/lessons/$lessonId"
+            params={{ lessonId: String(lesson.next_lesson_id) }}
+            className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700"
+          >
+            Next lesson
+            <ArrowRightIcon className="size-4" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 };
