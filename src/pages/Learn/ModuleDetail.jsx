@@ -6,9 +6,12 @@ import {
   DocumentTextIcon,
   QuestionMarkCircleIcon,
   ClockIcon,
+  CheckCircleIcon,
+  LockClosedIcon,
 } from '@heroicons/react/20/solid';
 
 import { getModule, getModuleSections } from '@api/learn';
+import { classNames } from '@utils/helpers';
 
 const LESSON_ICON = {
   video: PlayCircleIcon,
@@ -24,18 +27,38 @@ const formatDuration = (seconds) => {
   return `${mins} min`;
 };
 
-const LessonRow = ({ lesson }) => {
+// Per-section gate: a lesson is unlocked if it's a free preview or every prior
+// lesson in the section is completed (mirrors the server's LessonPolicy gate).
+const lessonStates = (lessons = []) => {
+  let priorAllComplete = true;
+  return lessons.map((lesson) => {
+    const accessible = lesson.free_preview || priorAllComplete;
+    const state = lesson.completed ? 'done' : accessible ? 'open' : 'locked';
+    priorAllComplete = priorAllComplete && lesson.completed;
+    return state;
+  });
+};
+
+const LessonRow = ({ lesson, state }) => {
   const Icon = LESSON_ICON[lesson.lesson_type] ?? DocumentTextIcon;
   const duration = formatDuration(lesson.duration_seconds);
+  const locked = state === 'locked';
 
-  return (
-    <Link
-      to="/lessons/$lessonId"
-      params={{ lessonId: String(lesson.id) }}
-      className="flex items-center gap-x-3 px-4 py-3 hover:bg-gray-50"
-    >
-      <Icon className="size-5 shrink-0 text-gray-400" />
-      <span className="min-w-0 flex-1 truncate text-sm text-gray-900">
+  const inner = (
+    <>
+      {state === 'done' ? (
+        <CheckCircleIcon className="size-5 shrink-0 text-green-600" />
+      ) : locked ? (
+        <LockClosedIcon className="size-5 shrink-0 text-gray-300" />
+      ) : (
+        <Icon className="size-5 shrink-0 text-gray-400" />
+      )}
+      <span
+        className={classNames(
+          'min-w-0 flex-1 truncate text-sm',
+          locked ? 'text-gray-400' : 'text-gray-900',
+        )}
+      >
         {lesson.title}
       </span>
       {lesson.free_preview && (
@@ -49,6 +72,24 @@ const LessonRow = ({ lesson }) => {
           {duration}
         </span>
       )}
+    </>
+  );
+
+  if (locked) {
+    return (
+      <div className="flex cursor-not-allowed items-center gap-x-3 px-4 py-3">
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      to="/lessons/$lessonId"
+      params={{ lessonId: String(lesson.id) }}
+      className="flex items-center gap-x-3 px-4 py-3 hover:bg-gray-50"
+    >
+      {inner}
     </Link>
   );
 };
@@ -106,23 +147,31 @@ const ModuleDetail = () => {
         <p className="text-sm text-gray-500">No lessons in this module yet.</p>
       ) : (
         <div className="space-y-6">
-          {sections.map((section) => (
-            <div
-              key={section.id}
-              className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
-            >
-              <div className="border-b border-gray-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gray-900">
-                  {section.title}
-                </h2>
+          {sections.map((section) => {
+            const lessons = section.lessons ?? [];
+            const states = lessonStates(lessons);
+            return (
+              <div
+                key={section.id}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+              >
+                <div className="border-b border-gray-100 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    {section.title}
+                  </h2>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {lessons.map((lesson, i) => (
+                    <LessonRow
+                      key={lesson.id}
+                      lesson={lesson}
+                      state={states[i]}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="divide-y divide-gray-100">
-                {(section.lessons ?? []).map((lesson) => (
-                  <LessonRow key={lesson.id} lesson={lesson} />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
