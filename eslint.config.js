@@ -33,4 +33,23 @@ export default defineConfig([
       globals: globals.node,
     },
   },
+  {
+    // Test files: Vitest injects describe/it/expect/vi as globals (globals:true
+    // in vite.config.js) and the setup runs in Node.
+    files: ['src/**/*.{test,spec}.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        vi: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+  },
 ]);

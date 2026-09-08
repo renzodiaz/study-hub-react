@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepare": "husky"
@@ -32,6 +34,9 @@
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^9.39.4",
     "@tanstack/router-devtools": "^1.166.11",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -40,9 +45,11 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "husky": "^9.1.7",
+    "jsdom": "^30.0.1",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "vitest": "^5.0.0"
   },
   "lint-staged": {
     "*.{js,ts,jsx}": [
