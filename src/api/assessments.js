@@ -48,3 +48,34 @@ export const getAttempt = async (attemptId) => {
   if (!res.ok) throw await parseError(res, 'Failed to load attempt');
   return normalize(await res.json());
 };
+
+// The runner payload: authoritative attempt status + ordered safe items, each
+// with the learner's own saved draft response. Plain JSON (a bespoke composite,
+// not a JSON:API resource). Refresh restores everything from here.
+export const getAttemptItems = async (attemptId) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/assessment_attempts/${attemptId}/items`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to load questions');
+  return res.json();
+};
+
+// Autosave one item's draft answer. The server derives everything authoritative;
+// the only thing sent is the canonical selection. Returns the saved answer plus
+// a fresh attempt status so the client can re-sync its countdown.
+export const saveResponse = async (attemptId, itemId, selectedOptionIds) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/assessment_attempts/${attemptId}/responses/${itemId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        response_payload: { selected_option_ids: selectedOptionIds },
+      }),
+    },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to save answer');
+  return res.json();
+};
