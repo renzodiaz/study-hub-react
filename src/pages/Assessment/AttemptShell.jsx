@@ -1,25 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ClockIcon, CheckBadgeIcon } from '@heroicons/react/20/solid';
+import { ClockIcon } from '@heroicons/react/20/solid';
 
-import { getAttempt } from '@api/assessments';
+import { getAttemptItems, saveResponse } from '@api/assessments';
+import useDisplayCountdown from '@hooks/useDisplayCountdown';
 
-// Display-only countdown. It is seeded from the server's authoritative
-// seconds_remaining and only formats a ticking label — it never decides whether
-// the attempt is expired. Expiry is whatever the server says on (re)fetch.
-const useDisplayCountdown = (expiresAt) => {
-  // Tick a local clock and format the remaining time against the server's
-  // authoritative expires_at. Only the label moves — the client never decides
-  // whether the attempt has actually expired.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  if (!expiresAt) return 0;
-  return Math.max(0, Math.floor((new Date(expiresAt).getTime() - now) / 1000));
-};
+const arraysEqual = (a, b) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
 
 const formatClock = (total) => {
   const m = Math.floor(total / 60);
@@ -27,35 +15,152 @@ const formatClock = (total) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
+// Autosave status label per item. Purely advisory — the server is the authority
+// on what was actually persisted.
+const SAVE_LABEL = {
+  saving: 'Saving…',
+  saved: 'Saved',
+  error: 'Could not save',
+};
+
 export default function AttemptShell() {
   const { attemptId } = useParams({ strict: false });
 
-  // Refresh restores everything from the API — no attempt state is persisted
-  // client-side.
-  const {
-    data: attempt,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ['assessment-attempt', attemptId],
-    queryFn: () => getAttempt(attemptId),
+  // Everything is restored from the server — nothing about the attempt or the
+  // answers is persisted client-side, so a refresh reconstructs the full state.
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['attempt-runner', attemptId],
+    queryFn: () => getAttemptItems(attemptId),
+    retry: false, // never hammer an expired / not-owned attempt
   });
 
+  const [current, setCurrent] = useState(0);
+  // Local overlay of answers the learner has changed this session, keyed by item
+  // id. Server data is the base; edits win only where present — so there is a
+  // single source of truth (server) with an explicit, per-item local override,
+  // and no seeding effect that could drift.
+  const [edits, setEdits] = useState({});
+  const [saveStatus, setSaveStatus] = useState({});
+  const [serverExpired, setServerExpired] = useState(false);
+
+  // Per-item autosave queue: at most ONE in-flight write per item; while one is
+  // in flight, newer changes collapse into `pending` (only the latest is kept).
+  // When the in-flight save resolves, the latest pending value is sent. This
+  // guarantees server writes happen in the learner's intended order, so a slow
+  // earlier request can never land after — and clobber — a newer one.
+  // Held in a ref (not state): the queue is control flow, not rendered data.
+  const queueRef = useRef({}); // { [itemId]: { inFlight, pending, lastSaved } }
+  const mountedRef = useRef(true);
+  useEffect(() => () => (mountedRef.current = false), []);
+
+  const attempt = data?.attempt;
+  const items = data?.items ?? [];
   const remaining = useDisplayCountdown(attempt?.expires_at);
 
+  const setStatus = (itemId, value) => {
+    if (mountedRef.current) setSaveStatus((s) => ({ ...s, [itemId]: value }));
+  };
+
+  const runSave = (itemId, ids) => {
+    const q = queueRef.current[itemId];
+    q.inFlight = true;
+    q.pending = undefined;
+    setStatus(itemId, 'saving');
+
+    saveResponse(attemptId, itemId, ids)
+      .then(() => {
+        q.inFlight = false;
+        q.lastSaved = ids;
+        // Flush the latest pending value if it differs from what we just saved.
+        if (q.pending !== undefined && !arraysEqual(q.pending, ids)) {
+          const next = q.pending;
+          q.pending = undefined;
+          runSave(itemId, next);
+        } else {
+          q.pending = undefined;
+          setStatus(itemId, 'saved');
+        }
+      })
+      .catch((err) => {
+        q.inFlight = false;
+        // Server is authoritative: if the attempt is over, stop the queue and
+        // send nothing further — regardless of the (cosmetic) local countdown.
+        if (err?.code === 'attempt_expired') {
+          q.pending = undefined;
+          if (mountedRef.current) setServerExpired(true);
+          return;
+        }
+        // Other failure: surface it and keep the latest selection. Retry re-sends
+        // the CURRENT selection (never the stale failed value).
+        setStatus(itemId, 'error');
+      });
+  };
+
+  // Enqueue the latest selection for an item, serialized per item.
+  const enqueueSave = (itemId, ids) => {
+    const q = (queueRef.current[itemId] ||= {
+      inFlight: false,
+      pending: undefined,
+      lastSaved: undefined,
+    });
+    if (q.inFlight) {
+      q.pending = ids; // coalesce: only the newest pending value survives
+    } else {
+      runSave(itemId, ids);
+    }
+  };
+
   if (isLoading) {
-    return <p className="p-6 text-sm text-gray-500">Loading attempt…</p>;
+    return <p className="p-6 text-sm text-gray-500">Loading questions…</p>;
   }
   if (isError) {
+    const expired = error?.code === 'attempt_expired';
     return (
-      <p className="p-6 text-sm text-red-600">
-        {error?.message ?? 'Failed to load attempt.'}
-      </p>
+      <div className="mx-auto max-w-2xl p-6">
+        <p className={`text-sm ${expired ? 'text-gray-600' : 'text-red-600'}`}>
+          {expired
+            ? 'This attempt has expired. You can no longer change your answers.'
+            : (error?.message ?? 'Failed to load the assessment.')}
+        </p>
+      </div>
     );
   }
 
-  const isExpired = attempt.expired || attempt.state === 'expired';
+  // Expiry authority: the server flag (from load or a save rejection) governs.
+  // The local countdown reaching zero disables the UI proactively, but a wrong
+  // client clock can never keep it editable — only the server can.
+  const isExpired =
+    serverExpired ||
+    attempt.expired ||
+    attempt.state === 'expired' ||
+    remaining <= 0;
+
+  const item = items[current];
+  const selectionFor = (it) =>
+    edits[it.id] ?? it.response?.selected_option_ids ?? [];
+
+  const persist = (it, ids) => {
+    setEdits((e) => ({ ...e, [it.id]: ids }));
+    if (!isExpired) enqueueSave(it.id, ids);
+  };
+
+  const onChoose = (it, optionId) => {
+    const currentIds = selectionFor(it);
+    let next;
+    if (it.item_type === 'multiple_choice') {
+      next = currentIds.includes(optionId)
+        ? currentIds.filter((id) => id !== optionId)
+        : [...currentIds, optionId];
+    } else {
+      // single_choice: choosing the selected option again clears it.
+      next = currentIds.includes(optionId) ? [] : [optionId];
+    }
+    persist(it, next);
+  };
+
+  const options = item?.public_payload?.options ?? [];
+  const selected = item ? selectionFor(item) : [];
+  const status = item ? saveStatus[item.id] : undefined;
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -73,36 +178,132 @@ export default function AttemptShell() {
             Expired
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700">
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700"
+            aria-label="time remaining"
+          >
             <ClockIcon className="size-4" />
             {formatClock(remaining)} left
           </span>
         )}
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="text-gray-500">Started</dt>
-          <dd className="text-gray-900">
-            {new Date(attempt.started_at).toLocaleString()}
-          </dd>
+      {isExpired && (
+        <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+          This attempt has expired. Your answers can no longer be changed.
         </div>
-        <div>
-          <dt className="text-gray-500">Expires</dt>
-          <dd className="text-gray-900">
-            {new Date(attempt.expires_at).toLocaleString()}
-          </dd>
-        </div>
-      </dl>
+      )}
 
-      <div className="mt-8 rounded-xl border-2 border-dashed border-gray-200 p-10 text-center">
-        <CheckBadgeIcon className="mx-auto size-10 text-gray-300" />
-        <p className="mt-3 text-sm font-medium text-gray-600">
-          Your attempt has been created and the clock is running.
-        </p>
-        <p className="mt-1 text-sm text-gray-400">
-          Questions will appear here in the next phase.
-        </p>
+      {/* Question navigator — answered items are marked so the learner can see
+          progress. Navigation never persists or authorizes anything. */}
+      <nav aria-label="Questions" className="mt-6 flex flex-wrap gap-2">
+        {items.map((it, index) => {
+          const answered = selectionFor(it).length > 0;
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => setCurrent(index)}
+              aria-current={index === current ? 'true' : undefined}
+              aria-label={`Question ${index + 1}${answered ? ', answered' : ''}`}
+              className={[
+                'size-9 rounded-md border text-sm font-medium',
+                index === current
+                  ? 'border-indigo-600 ring-2 ring-indigo-200'
+                  : 'border-gray-200',
+                answered
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-white text-gray-700',
+              ].join(' ')}
+            >
+              {index + 1}
+            </button>
+          );
+        })}
+      </nav>
+
+      {item && (
+        <section className="mt-6">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+            Question {current + 1} of {items.length}
+          </p>
+          <h2 className="mt-1 text-base font-semibold text-gray-900">
+            {item.prompt}
+          </h2>
+
+          <fieldset className="mt-4 space-y-2" disabled={isExpired}>
+            <legend className="sr-only">Answer options</legend>
+            {options.map((option) => {
+              const checked = selected.includes(option.id);
+              const type =
+                item.item_type === 'multiple_choice' ? 'checkbox' : 'radio';
+              return (
+                <label
+                  key={option.id}
+                  className={[
+                    'flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm',
+                    checked
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-gray-200',
+                    isExpired ? 'cursor-not-allowed opacity-60' : '',
+                  ].join(' ')}
+                >
+                  <input
+                    type={type}
+                    name={`item-${item.id}`}
+                    value={option.id}
+                    checked={checked}
+                    disabled={isExpired}
+                    onChange={() => onChoose(item, option.id)}
+                    className="size-4"
+                  />
+                  <span className="text-gray-900">{option.label}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+
+          <div className="mt-3 flex items-center gap-3 text-sm">
+            {status && (
+              <span
+                role="status"
+                className={
+                  status === 'error' ? 'text-red-600' : 'text-gray-500'
+                }
+              >
+                {SAVE_LABEL[status]}
+              </span>
+            )}
+            {status === 'error' && !isExpired && (
+              <button
+                type="button"
+                onClick={() => enqueueSave(item.id, selectionFor(item))}
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      <div className="mt-8 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+          disabled={current === 0}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          onClick={() => setCurrent((c) => Math.min(items.length - 1, c + 1))}
+          disabled={current >= items.length - 1}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
+        >
+          Next
+        </button>
       </div>
     </div>
   );
