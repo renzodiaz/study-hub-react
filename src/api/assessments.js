@@ -79,3 +79,29 @@ export const saveResponse = async (attemptId, itemId, selectedOptionIds) => {
   if (!res.ok) throw await parseError(res, 'Failed to save answer');
   return res.json();
 };
+
+// Submit the attempt. No body — the server grades the already-saved responses
+// and returns the authoritative learner-safe result.
+export const submitAttempt = async (attemptId) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/assessment_attempts/${attemptId}/submission`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to submit assessment');
+  return res.json();
+};
+
+// The learner-safe result of a submitted attempt (pass/fail + aggregate
+// dimension scores only — never answer keys or per-item correctness).
+export const getAttemptResult = async (attemptId) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/assessment_attempts/${attemptId}/result`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to load result');
+  return res.json();
+};
