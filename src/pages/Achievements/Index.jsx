@@ -19,6 +19,12 @@ const LEVEL_LABELS = {
   principal: 'Principal',
 };
 
+const TARGET_LEVEL_LABELS = {
+  mid_senior: 'Mid-Senior',
+};
+
+const isKnowledge = (cert) => cert.credential_kind === 'knowledge';
+
 const publicUrl = (token) => `${window.location.origin}/verify/${token}`;
 
 const linkedInUrl = (cert) => {
@@ -64,9 +70,29 @@ const CertificateCard = ({ certificate }) => {
         </div>
       </div>
 
-      <span className="mt-4 inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
-        {LEVEL_LABELS[certificate.level] ?? certificate.level}
-      </span>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {isKnowledge(certificate) ? (
+          <>
+            <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+              Knowledge credential
+            </span>
+            <span className="inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+              {TARGET_LEVEL_LABELS[certificate.target_level] ??
+                certificate.target_level}{' '}
+              standard
+            </span>
+          </>
+        ) : (
+          <span className="inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+            {LEVEL_LABELS[certificate.level] ?? certificate.level}
+          </span>
+        )}
+        {certificate.revoked && (
+          <span className="inline-flex w-fit items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+            Revoked
+          </span>
+        )}
+      </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <a

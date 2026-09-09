@@ -68,6 +68,19 @@ export default function AssessmentResult({ attemptId, initialData }) {
         </div>
       </div>
 
+      {passed && (
+        // Issuance is asynchronous: the credential appears in Achievements once
+        // the server finishes issuing it (a moment after passing). We never claim
+        // no credential was earned.
+        <div className="mt-6 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-800">
+          Your knowledge credential is being issued and will appear in{' '}
+          <a href="/achievements" className="font-semibold underline">
+            your achievements
+          </a>{' '}
+          shortly.
+        </div>
+      )}
+
       <h2 className="mt-8 text-sm font-semibold text-gray-900">
         Dimension breakdown
       </h2>
