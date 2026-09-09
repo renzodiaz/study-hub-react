@@ -3,8 +3,9 @@ import { useParams } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ClockIcon } from '@heroicons/react/20/solid';
 
-import { getAttemptItems, saveResponse } from '@api/assessments';
+import { getAttemptItems, saveResponse, submitAttempt } from '@api/assessments';
 import useDisplayCountdown from '@hooks/useDisplayCountdown';
+import AssessmentResult from './Result';
 
 const arraysEqual = (a, b) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
@@ -31,25 +32,27 @@ export default function AttemptShell() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['attempt-runner', attemptId],
     queryFn: () => getAttemptItems(attemptId),
-    retry: false, // never hammer an expired / not-owned attempt
+    retry: false, // never hammer an expired / not-owned / submitted attempt
   });
 
   const [current, setCurrent] = useState(0);
-  // Local overlay of answers the learner has changed this session, keyed by item
-  // id. Server data is the base; edits win only where present — so there is a
-  // single source of truth (server) with an explicit, per-item local override,
-  // and no seeding effect that could drift.
   const [edits, setEdits] = useState({});
   const [saveStatus, setSaveStatus] = useState({});
   const [serverExpired, setServerExpired] = useState(false);
 
-  // Per-item autosave queue: at most ONE in-flight write per item; while one is
-  // in flight, newer changes collapse into `pending` (only the latest is kept).
-  // When the in-flight save resolves, the latest pending value is sent. This
-  // guarantees server writes happen in the learner's intended order, so a slow
-  // earlier request can never land after — and clobber — a newer one.
-  // Held in a ref (not state): the queue is control flow, not rendered data.
-  const queueRef = useRef({}); // { [itemId]: { inFlight, pending, lastSaved } }
+  // Submission UI state.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitBlock, setSubmitBlock] = useState(null); // 'unsaved' | message | null
+  const [result, setResult] = useState(null); // set once submitted (avoids refetch)
+
+  // Per-item autosave queue: at most ONE in-flight write per item; newer changes
+  // collapse into `pending` (latest only). Held in a ref (control flow, not
+  // rendered). `error` mirrors the last outcome so the submit gate can read it
+  // synchronously without racing React state.
+  const queueRef = useRef({}); // { [id]: { inFlight, pending, lastSaved, error } }
+  const drainWaitersRef = useRef([]);
+  const expiredRef = useRef(false); // server said expired (authoritative)
   const mountedRef = useRef(true);
   useEffect(() => () => (mountedRef.current = false), []);
 
@@ -61,17 +64,38 @@ export default function AttemptShell() {
     if (mountedRef.current) setSaveStatus((s) => ({ ...s, [itemId]: value }));
   };
 
+  const queueIdle = () =>
+    Object.values(queueRef.current).every(
+      (q) => !q.inFlight && q.pending === undefined,
+    );
+  const queueHasError = () =>
+    Object.values(queueRef.current).some((q) => q.error);
+
+  const resolveDrainIfIdle = () => {
+    if (queueIdle()) {
+      const waiters = drainWaitersRef.current;
+      drainWaitersRef.current = [];
+      waiters.forEach((resolve) => resolve());
+    }
+  };
+
+  // Resolves once no autosave is in-flight or pending for any item.
+  const awaitDrain = () =>
+    queueIdle()
+      ? Promise.resolve()
+      : new Promise((resolve) => drainWaitersRef.current.push(resolve));
+
   const runSave = (itemId, ids) => {
     const q = queueRef.current[itemId];
     q.inFlight = true;
     q.pending = undefined;
+    q.error = false;
     setStatus(itemId, 'saving');
 
     saveResponse(attemptId, itemId, ids)
       .then(() => {
         q.inFlight = false;
         q.lastSaved = ids;
-        // Flush the latest pending value if it differs from what we just saved.
         if (q.pending !== undefined && !arraysEqual(q.pending, ids)) {
           const next = q.pending;
           q.pending = undefined;
@@ -79,29 +103,30 @@ export default function AttemptShell() {
         } else {
           q.pending = undefined;
           setStatus(itemId, 'saved');
+          resolveDrainIfIdle();
         }
       })
       .catch((err) => {
         q.inFlight = false;
-        // Server is authoritative: if the attempt is over, stop the queue and
-        // send nothing further — regardless of the (cosmetic) local countdown.
+        q.pending = undefined;
+        // Server is authoritative: if the attempt is over, stop the queue.
         if (err?.code === 'attempt_expired') {
-          q.pending = undefined;
+          expiredRef.current = true;
           if (mountedRef.current) setServerExpired(true);
-          return;
+        } else {
+          q.error = true;
+          setStatus(itemId, 'error');
         }
-        // Other failure: surface it and keep the latest selection. Retry re-sends
-        // the CURRENT selection (never the stale failed value).
-        setStatus(itemId, 'error');
+        resolveDrainIfIdle();
       });
   };
 
-  // Enqueue the latest selection for an item, serialized per item.
   const enqueueSave = (itemId, ids) => {
     const q = (queueRef.current[itemId] ||= {
       inFlight: false,
       pending: undefined,
       lastSaved: undefined,
+      error: false,
     });
     if (q.inFlight) {
       q.pending = ids; // coalesce: only the newest pending value survives
@@ -113,6 +138,18 @@ export default function AttemptShell() {
   if (isLoading) {
     return <p className="p-6 text-sm text-gray-500">Loading questions…</p>;
   }
+
+  // A submitted attempt (restore, or the items endpoint reporting it) shows the
+  // result, never an editable runner.
+  if (result || error?.code === 'attempt_submitted') {
+    return (
+      <AssessmentResult
+        attemptId={attemptId}
+        initialData={result ?? undefined}
+      />
+    );
+  }
+
   if (isError) {
     const expired = error?.code === 'attempt_expired';
     return (
@@ -126,22 +163,24 @@ export default function AttemptShell() {
     );
   }
 
-  // Expiry authority: the server flag (from load or a save rejection) governs.
-  // The local countdown reaching zero disables the UI proactively, but a wrong
-  // client clock can never keep it editable — only the server can.
   const isExpired =
     serverExpired ||
     attempt.expired ||
     attempt.state === 'expired' ||
     remaining <= 0;
+  const locked = isExpired || submitting;
 
   const item = items[current];
   const selectionFor = (it) =>
     edits[it.id] ?? it.response?.selected_option_ids ?? [];
+  const answeredCount = items.filter(
+    (it) => selectionFor(it).length > 0,
+  ).length;
+  const unansweredCount = items.length - answeredCount;
 
   const persist = (it, ids) => {
     setEdits((e) => ({ ...e, [it.id]: ids }));
-    if (!isExpired) enqueueSave(it.id, ids);
+    if (!locked) enqueueSave(it.id, ids);
   };
 
   const onChoose = (it, optionId) => {
@@ -152,10 +191,44 @@ export default function AttemptShell() {
         ? currentIds.filter((id) => id !== optionId)
         : [...currentIds, optionId];
     } else {
-      // single_choice: choosing the selected option again clears it.
       next = currentIds.includes(optionId) ? [] : [optionId];
     }
     persist(it, next);
+  };
+
+  // Submission: flush every autosave first; only submit if all saved and the
+  // attempt is still live. Answers are never sent — the server grades what it
+  // already has.
+  const confirmSubmit = async () => {
+    setSubmitBlock(null);
+    setSubmitting(true); // disable edits + duplicate submits
+    await awaitDrain();
+
+    if (queueHasError()) {
+      setSubmitting(false);
+      setSubmitBlock('unsaved');
+      return;
+    }
+    if (expiredRef.current) {
+      setSubmitting(false);
+      setConfirmOpen(false);
+      return; // expiry surfaced during flush — do not submit
+    }
+
+    try {
+      const data = await submitAttempt(attemptId);
+      if (mountedRef.current) setResult(data);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setSubmitting(false);
+      if (err?.code === 'attempt_expired') {
+        expiredRef.current = true;
+        setServerExpired(true);
+        setConfirmOpen(false);
+      } else {
+        setSubmitBlock(err?.message ?? 'Submission failed. Please try again.');
+      }
+    }
   };
 
   const options = item?.public_payload?.options ?? [];
@@ -194,8 +267,6 @@ export default function AttemptShell() {
         </div>
       )}
 
-      {/* Question navigator — answered items are marked so the learner can see
-          progress. Navigation never persists or authorizes anything. */}
       <nav aria-label="Questions" className="mt-6 flex flex-wrap gap-2">
         {items.map((it, index) => {
           const answered = selectionFor(it).length > 0;
@@ -231,7 +302,7 @@ export default function AttemptShell() {
             {item.prompt}
           </h2>
 
-          <fieldset className="mt-4 space-y-2" disabled={isExpired}>
+          <fieldset className="mt-4 space-y-2" disabled={locked}>
             <legend className="sr-only">Answer options</legend>
             {options.map((option) => {
               const checked = selected.includes(option.id);
@@ -245,7 +316,7 @@ export default function AttemptShell() {
                     checked
                       ? 'border-indigo-500 bg-indigo-50'
                       : 'border-gray-200',
-                    isExpired ? 'cursor-not-allowed opacity-60' : '',
+                    locked ? 'cursor-not-allowed opacity-60' : '',
                   ].join(' ')}
                 >
                   <input
@@ -253,7 +324,7 @@ export default function AttemptShell() {
                     name={`item-${item.id}`}
                     value={option.id}
                     checked={checked}
-                    disabled={isExpired}
+                    disabled={locked}
                     onChange={() => onChoose(item, option.id)}
                     className="size-4"
                   />
@@ -274,7 +345,7 @@ export default function AttemptShell() {
                 {SAVE_LABEL[status]}
               </span>
             )}
-            {status === 'error' && !isExpired && (
+            {status === 'error' && !locked && (
               <button
                 type="button"
                 onClick={() => enqueueSave(item.id, selectionFor(item))}
@@ -296,15 +367,83 @@ export default function AttemptShell() {
         >
           Previous
         </button>
-        <button
-          type="button"
-          onClick={() => setCurrent((c) => Math.min(items.length - 1, c + 1))}
-          disabled={current >= items.length - 1}
-          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
-        >
-          Next
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setCurrent((c) => Math.min(items.length - 1, c + 1))}
+            disabled={current >= items.length - 1}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
+          >
+            Next
+          </button>
+          {!isExpired && (
+            <button
+              type="button"
+              onClick={() => {
+                setSubmitBlock(null);
+                setConfirmOpen(true);
+              }}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              Submit assessment
+            </button>
+          )}
+        </div>
       </div>
+
+      {confirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm submission"
+          className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900">
+              Submit this assessment?
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              You have answered <strong>{answeredCount}</strong> of{' '}
+              <strong>{items.length}</strong> questions
+              {unansweredCount > 0 && (
+                <> ({unansweredCount} unanswered will be marked incorrect)</>
+              )}
+              . Submission is final and cannot be undone.
+            </p>
+
+            {submitBlock === 'unsaved' && (
+              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                Some answers didn’t save. Close this dialog, resolve them, then
+                submit again.
+              </p>
+            )}
+            {submitBlock && submitBlock !== 'unsaved' && (
+              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {submitBlock}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                disabled={submitting}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmSubmit}
+                disabled={submitting}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
+              >
+                {submitting ? 'Submitting…' : 'Confirm submission'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

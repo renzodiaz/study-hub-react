@@ -22,6 +22,8 @@ const flush = (fn) => act(async () => fn());
 vi.mock('@api/assessments', () => ({
   getAttemptItems: vi.fn(),
   saveResponse: vi.fn(),
+  submitAttempt: vi.fn(),
+  getAttemptResult: vi.fn(),
   getAttempt: vi.fn(),
   getCourseAssessment: vi.fn(),
   startAttempt: vi.fn(),
