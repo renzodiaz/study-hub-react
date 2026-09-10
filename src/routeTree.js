@@ -25,6 +25,9 @@ import Achievements from '@pages/Achievements/Index';
 import AssessmentIntro from '@pages/Assessment/Intro';
 import AssessmentAttemptShell from '@pages/Assessment/AttemptShell';
 import VerifyCertificate from '@pages/Verify/Certificate';
+import Pricing from '@pages/Billing/Pricing';
+import BillingSuccess from '@pages/Billing/Success';
+import BillingCanceled from '@pages/Billing/Canceled';
 
 // ─── Root Route ─────────────────────────
 const rootRoute = createRootRoute();
@@ -177,6 +180,26 @@ const verifyCertificateRoute = createRoute({
   component: VerifyCertificate,
 });
 
+// Public pricing + Stripe Checkout return pages (no auth, no app shell). Pricing
+// adapts its CTA to the viewer's auth state via useAuth.
+const pricingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'pricing',
+  component: Pricing,
+});
+
+const billingSuccessRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'billing/success',
+  component: BillingSuccess,
+});
+
+const billingCanceledRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'billing/canceled',
+  component: BillingCanceled,
+});
+
 const studyHubRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'study-hub',
@@ -212,4 +235,7 @@ export const routeTree = rootRoute.addChildren([
   ]),
   authLayoutRoute.addChildren([loginRoute, registerRoute]),
   verifyCertificateRoute,
+  pricingRoute,
+  billingSuccessRoute,
+  billingCanceledRoute,
 ]);
