@@ -1,21 +1,31 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 
 import { renderWithProviders } from '@test/renderWithProviders';
 import Canceled from './Canceled';
 import Success from './Success';
 
-// These routes are informational; they must not touch billing state or call the
-// billing API. The modules don't import it, so importing the mock and asserting
-// no calls documents that contract.
 vi.mock('@api/billing', () => ({
   getPlans: vi.fn(),
   getSubscription: vi.fn(),
   createCheckoutSession: vi.fn(),
   redirectToCheckout: vi.fn(),
 }));
-import { createCheckoutSession, getSubscription } from '@api/billing';
+import {
+  createCheckoutSession,
+  getSubscription,
+  redirectToCheckout,
+} from '@api/billing';
+
+const freeSub = {
+  paid_access: false,
+  status: 'active',
+  plan: { slug: 'free' },
+};
+const paidSub = { paid_access: true, status: 'active', plan: { slug: 'pro' } };
 
 describe('Checkout return pages', () => {
+  afterEach(() => vi.clearAllMocks());
+
   it('canceled page renders without any billing mutation/API call', async () => {
     renderWithProviders(Canceled, {
       path: '/billing/canceled',
@@ -27,17 +37,34 @@ describe('Checkout return pages', () => {
     expect(getSubscription).not.toHaveBeenCalled();
   });
 
-  it('success page does NOT claim active access and does not activate anything', async () => {
+  it('success page shows "processing" while access is not yet granted', async () => {
+    getSubscription.mockResolvedValue(freeSub);
     renderWithProviders(Success, {
       path: '/billing/success',
       initialPath: '/billing/success',
     });
+
     expect(await screen.findByText(/payment processing/i)).toBeInTheDocument();
-    // Never asserts the subscription is active/paid.
+    // It polls the LOCAL subscription endpoint — never mutates or hits Stripe.
+    await waitFor(() => expect(getSubscription).toHaveBeenCalled());
     expect(
       screen.queryByText(/subscription is active/i),
     ).not.toBeInTheDocument();
     expect(createCheckoutSession).not.toHaveBeenCalled();
-    expect(getSubscription).not.toHaveBeenCalled();
+    expect(redirectToCheckout).not.toHaveBeenCalled();
+  });
+
+  it('success page shows activation once local paid_access flips true', async () => {
+    getSubscription.mockResolvedValue(paidSub);
+    renderWithProviders(Success, {
+      path: '/billing/success',
+      initialPath: '/billing/success',
+    });
+
+    expect(
+      await screen.findByText(/subscription is active/i),
+    ).toBeInTheDocument();
+    expect(createCheckoutSession).not.toHaveBeenCalled();
+    expect(redirectToCheckout).not.toHaveBeenCalled();
   });
 });

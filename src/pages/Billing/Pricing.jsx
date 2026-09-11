@@ -48,12 +48,8 @@ export default function Pricing() {
     enabled: Boolean(user),
   });
 
-  const paidAccess = Boolean(
-    subscription &&
-    subscription.status === 'active' &&
-    subscription.plan?.slug &&
-    subscription.plan.slug !== 'free',
-  );
+  // Authoritative flag from the backend — the frontend never derives entitlement.
+  const paidAccess = Boolean(subscription?.paid_access);
 
   const checkout = useMutation({
     mutationFn: (slug) => createCheckoutSession(slug),

@@ -123,6 +123,7 @@ describe('Pricing', () => {
 
   it('does not offer checkout to an already-subscribed user', async () => {
     getSubscription.mockResolvedValue({
+      paid_access: true,
       status: 'active',
       plan: { slug: 'pro' },
     });
