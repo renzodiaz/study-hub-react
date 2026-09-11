@@ -26,6 +26,7 @@ import AssessmentIntro from '@pages/Assessment/Intro';
 import AssessmentAttemptShell from '@pages/Assessment/AttemptShell';
 import VerifyCertificate from '@pages/Verify/Certificate';
 import Pricing from '@pages/Billing/Pricing';
+import BillingManage from '@pages/Billing/Manage';
 import BillingSuccess from '@pages/Billing/Success';
 import BillingCanceled from '@pages/Billing/Canceled';
 
@@ -108,6 +109,14 @@ const settingsRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'settings',
   component: Settings,
+});
+
+// Authenticated billing management (inside the app shell). The Stripe return
+// pages (/billing/success, /billing/canceled) stay public at the root below.
+const billingManageRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'billing',
+  component: BillingManage,
 });
 
 const careerTracksRoute = createRoute({
@@ -230,6 +239,7 @@ export const routeTree = rootRoute.addChildren([
     projectsRoute,
     reportsRoute,
     settingsRoute,
+    billingManageRoute,
     studyHubRoute,
     studyHubEditorRoute,
   ]),

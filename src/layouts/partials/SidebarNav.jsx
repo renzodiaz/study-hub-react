@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   ChartPieIcon,
   Cog6ToothIcon,
+  CreditCardIcon,
   DocumentDuplicateIcon,
   FolderIcon,
   HomeIcon,
@@ -21,6 +22,7 @@ const NAVIGATION = [
   { name: 'Explore', to: '/learn', icon: AcademicCapIcon },
   { name: 'My learning', to: '/my-learning', icon: BookOpenIcon },
   { name: 'Achievements', to: '/achievements', icon: TrophyIcon },
+  { name: 'Billing', to: '/billing', icon: CreditCardIcon },
   {
     name: 'Career Tracks',
     to: '/career-tracks',

@@ -67,4 +67,25 @@ describe('Checkout return pages', () => {
     expect(createCheckoutSession).not.toHaveBeenCalled();
     expect(redirectToCheckout).not.toHaveBeenCalled();
   });
+
+  it('success page shows a billing-problem state for a non-granting Stripe-backed status', async () => {
+    getSubscription.mockResolvedValue({
+      paid_access: false,
+      status: 'past_due',
+      plan: { slug: 'pro' },
+    });
+    renderWithProviders(Success, {
+      path: '/billing/success',
+      initialPath: '/billing/success',
+    });
+
+    expect(
+      await screen.findByText(/problem with your payment/i),
+    ).toBeInTheDocument();
+    // Routes to Manage billing rather than looping on "processing".
+    expect(
+      screen.getByRole('link', { name: /manage billing/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/payment processing/i)).not.toBeInTheDocument();
+  });
 });

@@ -50,3 +50,29 @@ export const createCheckoutSession = async (plan) => {
 export const redirectToCheckout = (url) => {
   window.location.assign(url);
 };
+
+// Ask the backend to create a hosted Stripe Customer Portal Session for the
+// current user. Sends NO body — the server resolves customer + return URL. The
+// Portal manages/cancels the subscription ON STRIPE; local entitlement only
+// changes later via the verified webhook. Returns { url }.
+export const createPortalSession = async () => {
+  const res = await fetch(`${API_BASE}/api/v1/billing/portal_session`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(
+      body.errors?.join(', ') ?? 'Could not open billing management',
+    );
+    err.code = body.code; // billing_not_initialized, stripe_unavailable, …
+    throw err;
+  }
+  return body; // { url }
+};
+
+// Navigate to Stripe's hosted Customer Portal. Only ever called with a URL our
+// authenticated backend returned; the Portal URL is never stored or logged.
+export const redirectToPortal = (url) => {
+  window.location.assign(url);
+};
