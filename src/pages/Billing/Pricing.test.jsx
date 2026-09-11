@@ -9,6 +9,8 @@ vi.mock('@api/billing', () => ({
   getSubscription: vi.fn(),
   createCheckoutSession: vi.fn(),
   redirectToCheckout: vi.fn(),
+  createPortalSession: vi.fn(),
+  redirectToPortal: vi.fn(),
 }));
 vi.mock('@hooks/useAuth', () => ({ useAuth: vi.fn() }));
 
@@ -17,8 +19,20 @@ import {
   getSubscription,
   createCheckoutSession,
   redirectToCheckout,
+  createPortalSession,
+  redirectToPortal,
 } from '@api/billing';
 import { useAuth } from '@hooks/useAuth';
+
+// A logged-in user always has a current subscription; a clean Free one permits
+// checkout. Tests override this for paid / problem / history states.
+const cleanFreeSub = {
+  paid_access: false,
+  status: 'active',
+  plan: { slug: 'free', name: 'Free' },
+  can_start_checkout: true,
+  can_manage_billing: false,
+};
 
 const PLANS = [
   {
@@ -52,7 +66,7 @@ const renderPricing = () =>
 
 beforeEach(() => {
   getPlans.mockResolvedValue(PLANS);
-  getSubscription.mockResolvedValue(null);
+  getSubscription.mockResolvedValue(cleanFreeSub);
   useAuth.mockReturnValue({ user: { id: 'u1' }, isLoading: false });
 });
 
@@ -121,11 +135,41 @@ describe('Pricing', () => {
     expect(redirectToCheckout).not.toHaveBeenCalled();
   });
 
-  it('does not offer checkout to an already-subscribed user', async () => {
+  it('offers Manage billing (not checkout) to an already-subscribed user', async () => {
     getSubscription.mockResolvedValue({
       paid_access: true,
       status: 'active',
-      plan: { slug: 'pro' },
+      plan: { slug: 'pro', name: 'Pro' },
+      can_start_checkout: false,
+      can_manage_billing: true,
+    });
+    createPortalSession.mockResolvedValue({
+      url: 'https://billing.stripe.test/p1',
+    });
+    renderPricing();
+    await screen.findByText('Pro');
+
+    expect(
+      screen.queryByRole('button', { name: /subscribe to/i }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /manage billing/i }),
+    );
+    await waitFor(() => expect(createPortalSession).toHaveBeenCalled());
+    expect(redirectToPortal).toHaveBeenCalledWith(
+      'https://billing.stripe.test/p1',
+    );
+    expect(createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('a Stripe-backed non-granting user gets Manage billing, never checkout', async () => {
+    getSubscription.mockResolvedValue({
+      paid_access: false,
+      status: 'past_due',
+      plan: { slug: 'pro', name: 'Pro' },
+      can_start_checkout: false,
+      can_manage_billing: true,
     });
     renderPricing();
     await screen.findByText('Pro');
@@ -133,7 +177,41 @@ describe('Pricing', () => {
       screen.queryByRole('button', { name: /subscribe to/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getAllByText(/manage billing coming soon/i).length,
-    ).toBeGreaterThan(0);
+      screen.getByRole('button', { name: /manage billing/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('allows re-subscription (checkout) for a Free user with billing history', async () => {
+    getSubscription.mockResolvedValue({
+      paid_access: false,
+      status: 'active',
+      plan: { slug: 'free', name: 'Free' },
+      can_start_checkout: true,
+      can_manage_billing: true, // has a Stripe customer from prior billing
+    });
+    createCheckoutSession.mockResolvedValue({
+      url: 'https://stripe.test/cs_re',
+    });
+    renderPricing();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /subscribe to pro/i }),
+    );
+    await waitFor(() =>
+      expect(createCheckoutSession).toHaveBeenCalledWith('pro'),
+    );
+  });
+
+  it('never renders Stripe identifiers', async () => {
+    getSubscription.mockResolvedValue({
+      paid_access: true,
+      status: 'active',
+      plan: { slug: 'pro', name: 'Pro' },
+      can_start_checkout: false,
+      can_manage_billing: true,
+    });
+    renderPricing();
+    await screen.findByText('Pro');
+    expect(document.body.innerHTML).not.toMatch(/cus_|sub_|price_[a-z]/);
   });
 });

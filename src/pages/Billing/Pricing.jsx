@@ -7,6 +7,8 @@ import {
   getSubscription,
   createCheckoutSession,
   redirectToCheckout,
+  createPortalSession,
+  redirectToPortal,
 } from '@api/billing';
 import { useAuth } from '@hooks/useAuth';
 
@@ -17,10 +19,12 @@ const PURCHASABLE = ['pro', 'advanced'];
 const ERROR_MESSAGE = {
   already_subscribed: 'You already have an active subscription.',
   billing_already_exists:
-    'You have an existing subscription that needs management — coming soon.',
+    'You have an existing subscription. Use Manage billing to change it.',
   checkout_in_progress:
     'A checkout is already in progress. Finish or cancel it, then try again.',
   stripe_unavailable: 'Payments are temporarily unavailable. Please try again.',
+  billing_not_initialized: 'You don’t have a billing account yet.',
+  configuration_error: 'Billing is temporarily unavailable. Please try again.',
 };
 
 const formatPrice = (cents, currency) =>
@@ -48,13 +52,21 @@ export default function Pricing() {
     enabled: Boolean(user),
   });
 
-  // Authoritative flag from the backend — the frontend never derives entitlement.
+  // Authoritative backend flags — the frontend never derives billing policy.
   const paidAccess = Boolean(subscription?.paid_access);
+  const canStartCheckout = Boolean(subscription?.can_start_checkout);
+  const canManageBilling = Boolean(subscription?.can_manage_billing);
 
   const checkout = useMutation({
     mutationFn: (slug) => createCheckoutSession(slug),
     onSuccess: (data) => redirectToCheckout(data.url),
     onError: (err) => setErrorCode(err?.code ?? 'error'),
+  });
+
+  const portal = useMutation({
+    mutationFn: createPortalSession,
+    onSuccess: (data) => redirectToPortal(data.url),
+    onError: (err) => setErrorCode(err?.code ?? 'stripe_unavailable'),
   });
 
   if (isLoading) {
@@ -65,6 +77,16 @@ export default function Pricing() {
     setErrorCode(null);
     checkout.mutate(slug);
   };
+
+  const manageBilling = () => {
+    setErrorCode(null);
+    portal.mutate();
+  };
+
+  // A logged-in user who cannot start a fresh Checkout (already paid, or a live
+  // Stripe-backed non-granting state) is directed to Manage billing instead.
+  const showManageInsteadOfCheckout =
+    Boolean(user) && !canStartCheckout && canManageBilling;
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -77,6 +99,25 @@ export default function Pricing() {
         <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
           {ERROR_MESSAGE[errorCode] ??
             'Something went wrong. Please try again.'}
+        </div>
+      )}
+
+      {showManageInsteadOfCheckout && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-indigo-50 p-4">
+          <p className="text-sm text-indigo-900">
+            {paidAccess
+              ? 'You already have an active subscription.'
+              : 'You have an existing billing account.'}{' '}
+            Change your plan, update payment, or cancel from Manage billing.
+          </p>
+          <button
+            type="button"
+            onClick={manageBilling}
+            disabled={portal.isPending}
+            className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+          >
+            {portal.isPending ? 'Opening…' : 'Manage billing'}
+          </button>
         </div>
       )}
 
@@ -116,11 +157,7 @@ export default function Pricing() {
                 >
                   Log in to subscribe
                 </a>
-              ) : paidAccess ? (
-                <span className="rounded-lg bg-gray-100 px-4 py-2 text-center text-sm font-medium text-gray-600">
-                  Manage billing coming soon
-                </span>
-              ) : (
+              ) : canStartCheckout ? (
                 <button
                   type="button"
                   onClick={() => subscribe(plan.slug)}
@@ -132,6 +169,12 @@ export default function Pricing() {
                     ? 'Starting…'
                     : `Subscribe to ${plan.name}`}
                 </button>
+              ) : (
+                // Already paid or a live Stripe-backed state: no second Checkout;
+                // the Manage-billing banner above is the path to change plans.
+                <span className="rounded-lg bg-gray-100 px-4 py-2 text-center text-sm font-medium text-gray-600">
+                  {paidAccess ? 'Included in your plan' : 'Unavailable'}
+                </span>
               )}
             </div>
           );

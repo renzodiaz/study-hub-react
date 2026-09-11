@@ -10,18 +10,28 @@ import { getSubscription } from '@api/billing';
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 30000;
 
+// Live Stripe-backed statuses that will NOT resolve into paid access on their
+// own — polling should stop and the user should be sent to Manage billing.
+const PROBLEM_STATUSES = ['past_due', 'incomplete', 'unpaid', 'paused'];
+
+const isProblem = (sub) =>
+  Boolean(sub) && !sub.paid_access && PROBLEM_STATUSES.includes(sub.status);
+
 export default function Success() {
   const [timedOut, setTimedOut] = useState(false);
 
   const { data: subscription } = useQuery({
     queryKey: ['subscription'],
     queryFn: getSubscription,
-    // Poll only until the authoritative paid_access flag flips, then stop.
-    refetchInterval: (query) =>
-      query.state.data?.paid_access ? false : POLL_INTERVAL_MS,
+    // Poll until access is granted OR a terminal billing problem is observed.
+    refetchInterval: (query) => {
+      const sub = query.state.data;
+      return sub?.paid_access || isProblem(sub) ? false : POLL_INTERVAL_MS;
+    },
   });
 
   const paidAccess = Boolean(subscription?.paid_access);
+  const billingProblem = isProblem(subscription);
 
   // Soften the copy after the timeout window; the webhook may simply be slow.
   // Runs once on mount — polling itself continues regardless.
@@ -45,6 +55,26 @@ export default function Success() {
           className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
         >
           Continue
+        </a>
+      </div>
+    );
+  }
+
+  if (billingProblem) {
+    return (
+      <div className="mx-auto max-w-lg p-8 text-center">
+        <h1 className="text-xl font-bold text-gray-900">
+          There&rsquo;s a problem with your payment
+        </h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Your subscription didn&rsquo;t activate. You can review and fix your
+          billing details to finish setting up your plan.
+        </p>
+        <a
+          href="/billing"
+          className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+        >
+          Manage billing
         </a>
       </div>
     );
