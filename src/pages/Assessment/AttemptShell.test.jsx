@@ -28,7 +28,26 @@ vi.mock('@api/assessments', () => ({
   getCourseAssessment: vi.fn(),
   startAttempt: vi.fn(),
 }));
-import { getAttemptItems, saveResponse } from '@api/assessments';
+import {
+  getAttemptItems,
+  saveResponse,
+  submitAttempt,
+  getAttemptResult,
+} from '@api/assessments';
+
+// The learner-safe result the submit endpoint returns (seeds the result screen).
+const passResult = (overrides = {}) => ({
+  attempt_id: 'att_1',
+  attempt_number: 1,
+  state: 'passed',
+  passed: true,
+  overall_score: 100.0,
+  assessment_title: 'Backend Engineering Credential',
+  target_level: 'mid_senior',
+  submitted_at: '2026-09-08T10:00:00Z',
+  dimensions: [{ key: 'technical', label: 'Technical', score: 100.0 }],
+  ...overrides,
+});
 
 // A full runner payload with two ordered items (single- then multiple-choice).
 // expires_at is far in the future so the display countdown is non-zero and the
@@ -384,6 +403,163 @@ describe('AssessmentAttemptShell (runner)', () => {
       expect(saveResponse).toHaveBeenCalledTimes(1);
       expect(screen.getByText(/this attempt has expired/i)).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: 'Beta' })).toBeDisabled();
+    });
+  });
+
+  describe('submission → result transition', () => {
+    // Drive: answer → open confirm → confirm. Returns after the confirm click.
+    const submitFlow = async ({ strict = false } = {}) => {
+      // Result seeds from the submit response but also refetches this endpoint.
+      getAttemptResult.mockResolvedValue(passResult());
+      renderWithProviders(AssessmentAttemptShell, {
+        path: '/assessment-attempts/$attemptId',
+        initialPath: '/assessment-attempts/att_1',
+        strict,
+      });
+      await userEvent.click(
+        await screen.findByRole('radio', { name: 'Alpha' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Submit assessment' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Confirm submission' }),
+      );
+    };
+
+    it('successful submit shows the result and clears "Submitting…"', async () => {
+      getAttemptItems.mockResolvedValue(runnerData());
+      saveResponse.mockResolvedValue({ response: {}, attempt: {} });
+      submitAttempt.mockResolvedValue(passResult());
+      await submitFlow();
+
+      expect(
+        await screen.findByRole('heading', { name: 'Passed' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Submitting…')).not.toBeInTheDocument();
+      expect(submitAttempt).toHaveBeenCalledWith('att_1');
+    });
+
+    // Regression: under StrictMode (mount → unmount → remount, as the real app
+    // runs) the old mountedRef pattern stayed false and swallowed setResult, so
+    // the UI got stuck on "Submitting…". This must transition to the result.
+    it('successful submit transitions to the result UNDER StrictMode', async () => {
+      getAttemptItems.mockResolvedValue(runnerData());
+      saveResponse.mockResolvedValue({ response: {}, attempt: {} });
+      submitAttempt.mockResolvedValue(passResult());
+      await submitFlow({ strict: true });
+
+      expect(
+        await screen.findByRole('heading', { name: 'Passed' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Submitting…')).not.toBeInTheDocument();
+    });
+
+    it('flushes a pending autosave before submitting, then submits exactly once', async () => {
+      getAttemptItems.mockResolvedValue(runnerData());
+      const save = deferred();
+      saveResponse.mockReturnValueOnce(save.promise); // held in-flight
+      submitAttempt.mockResolvedValue(passResult());
+      getAttemptResult.mockResolvedValue(passResult());
+
+      renderWithProviders(AssessmentAttemptShell, {
+        path: '/assessment-attempts/$attemptId',
+        initialPath: '/assessment-attempts/att_1',
+      });
+      await userEvent.click(
+        await screen.findByRole('radio', { name: 'Alpha' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Submit assessment' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Confirm submission' }),
+      );
+
+      // Submit must NOT fire while the autosave is still in flight.
+      expect(submitAttempt).not.toHaveBeenCalled();
+
+      await flush(() => save.resolve({ response: {}, attempt: {} })); // drain → submit
+      expect(
+        await screen.findByRole('heading', { name: 'Passed' }),
+      ).toBeInTheDocument();
+      expect(submitAttempt).toHaveBeenCalledTimes(1);
+    });
+
+    it('a failed submit leaves a recoverable state (no false result, retry possible)', async () => {
+      getAttemptItems.mockResolvedValue(runnerData());
+      saveResponse.mockResolvedValue({ response: {}, attempt: {} });
+      submitAttempt
+        .mockRejectedValueOnce(
+          new Error('Submission failed. Please try again.'),
+        )
+        .mockResolvedValueOnce(passResult());
+      await submitFlow();
+
+      expect(
+        await screen.findByText(/submission failed\. please try again\./i),
+      ).toBeInTheDocument();
+      // Never a false pass, and the runner is not stuck submitting.
+      expect(
+        screen.queryByRole('heading', { name: 'Passed' }),
+      ).not.toBeInTheDocument();
+      const confirm = screen.getByRole('button', {
+        name: 'Confirm submission',
+      });
+      expect(confirm).toBeEnabled();
+
+      await userEvent.click(confirm); // retry succeeds
+      expect(
+        await screen.findByRole('heading', { name: 'Passed' }),
+      ).toBeInTheDocument();
+    });
+
+    it('rapid double-confirm submits exactly once', async () => {
+      getAttemptItems.mockResolvedValue(runnerData());
+      saveResponse.mockResolvedValue({ response: {}, attempt: {} });
+      const submit = deferred();
+      submitAttempt.mockReturnValue(submit.promise); // hold in-flight
+      getAttemptResult.mockResolvedValue(passResult());
+
+      renderWithProviders(AssessmentAttemptShell, {
+        path: '/assessment-attempts/$attemptId',
+        initialPath: '/assessment-attempts/att_1',
+      });
+      await userEvent.click(
+        await screen.findByRole('radio', { name: 'Alpha' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Submit assessment' }),
+      );
+      const confirm = screen.getByRole('button', {
+        name: /Confirm submission|Submitting…/,
+      });
+      await userEvent.click(confirm);
+      await userEvent.click(confirm); // second click while in-flight (disabled + ref guard)
+
+      expect(submitAttempt).toHaveBeenCalledTimes(1);
+      await flush(() => submit.resolve(passResult()));
+      expect(
+        await screen.findByRole('heading', { name: 'Passed' }),
+      ).toBeInTheDocument();
+    });
+
+    it('an already-submitted attempt (refresh) renders the result without re-submitting', async () => {
+      const err = new Error('already submitted');
+      err.code = 'attempt_submitted';
+      getAttemptItems.mockRejectedValue(err); // items endpoint reports submitted
+      getAttemptResult.mockResolvedValue(passResult());
+
+      renderWithProviders(AssessmentAttemptShell, {
+        path: '/assessment-attempts/$attemptId',
+        initialPath: '/assessment-attempts/att_1',
+      });
+
+      expect(
+        await screen.findByRole('heading', { name: 'Passed' }),
+      ).toBeInTheDocument();
+      expect(submitAttempt).not.toHaveBeenCalled(); // no re-submit on restore
+      expect(getAttemptResult).toHaveBeenCalledWith('att_1');
     });
   });
 

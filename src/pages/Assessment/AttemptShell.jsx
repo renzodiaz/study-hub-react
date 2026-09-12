@@ -53,8 +53,19 @@ export default function AttemptShell() {
   const queueRef = useRef({}); // { [id]: { inFlight, pending, lastSaved, error } }
   const drainWaitersRef = useRef([]);
   const expiredRef = useRef(false); // server said expired (authoritative)
+  const submittingRef = useRef(false); // hard guard against duplicate submits
+  // Track mount state for post-async setState guards. MUST set true on every
+  // mount (not only via the initial ref value): React StrictMode mounts →
+  // unmounts → remounts in dev, and without re-setting true here the cleanup
+  // would leave this false for the component's whole life — which previously
+  // swallowed setResult() after a successful submit (stuck on "Submitting…").
   const mountedRef = useRef(true);
-  useEffect(() => () => (mountedRef.current = false), []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const attempt = data?.attempt;
   const items = data?.items ?? [];
@@ -200,16 +211,20 @@ export default function AttemptShell() {
   // attempt is still live. Answers are never sent — the server grades what it
   // already has.
   const confirmSubmit = async () => {
+    if (submittingRef.current) return; // exactly one in-flight submission
+    submittingRef.current = true;
     setSubmitBlock(null);
     setSubmitting(true); // disable edits + duplicate submits
     await awaitDrain();
 
     if (queueHasError()) {
+      submittingRef.current = false;
       setSubmitting(false);
       setSubmitBlock('unsaved');
       return;
     }
     if (expiredRef.current) {
+      submittingRef.current = false;
       setSubmitting(false);
       setConfirmOpen(false);
       return; // expiry surfaced during flush — do not submit
@@ -217,8 +232,12 @@ export default function AttemptShell() {
 
     try {
       const data = await submitAttempt(attemptId);
+      // On success we transition to the result screen (the runner unmounts), so
+      // `submitting` intentionally stays true until then — no flicker back to the
+      // editable runner.
       if (mountedRef.current) setResult(data);
     } catch (err) {
+      submittingRef.current = false; // a failed submit is retryable
       if (!mountedRef.current) return;
       setSubmitting(false);
       if (err?.code === 'attempt_expired') {
