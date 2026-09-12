@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -42,6 +43,10 @@ export function renderWithProviders(
     initialPath = path,
     extraRoutes = [],
     queryClient = createTestQueryClient(),
+    // Wrap in React.StrictMode to reproduce the dev mount → unmount → remount
+    // double-invoke (the app runs under StrictMode). Off by default so existing
+    // tests are unaffected; on to guard effect/ref lifecycles.
+    strict = false,
   } = {},
 ) {
   const rootRoute = createRootRoute({ component: Outlet });
@@ -66,11 +71,13 @@ export function renderWithProviders(
     context: { user: null },
   });
 
-  const utils = render(
+  const tree = (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+
+  const utils = render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 
   return { ...utils, router, queryClient };
 }
