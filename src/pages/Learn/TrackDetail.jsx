@@ -4,9 +4,11 @@ import {
   ArrowLeftIcon,
   ClockIcon,
   CheckCircleIcon,
+  LockClosedIcon,
 } from '@heroicons/react/20/solid';
 
 import { getTrack, getTrackModules, getEnrollments, enroll } from '@api/learn';
+import { classNames } from '@utils/helpers';
 
 const LEVEL_LABELS = {
   beginner: 'Beginner',
@@ -17,24 +19,69 @@ const LEVEL_LABELS = {
   principal: 'Principal',
 };
 
-const ModuleRow = ({ module, index, trackId }) => (
-  <li>
-    <Link
-      to="/learn/$trackId/$courseId"
-      params={{ trackId: String(trackId), courseId: String(module.id) }}
-      className="flex items-start gap-x-4 py-5 hover:bg-gray-50"
-    >
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-600">
+// The backend owns progression; the UI only renders the status it reports.
+// Missing progression (older payload) is treated as available so nothing breaks.
+const courseStatus = (module) => module.progression?.status ?? 'available';
+
+const StatusBadge = ({ status }) => {
+  if (status === 'completed') {
+    return (
+      <span className="inline-flex items-center gap-x-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+        <CheckCircleIcon className="size-3.5" />
+        Completed
+      </span>
+    );
+  }
+  if (status === 'locked') {
+    return (
+      <span className="inline-flex items-center gap-x-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+        <LockClosedIcon className="size-3.5" />
+        Locked
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+      Available
+    </span>
+  );
+};
+
+// Copy for a locked course: name the prerequisite, or prompt enrollment when the
+// course is only locked because the learner hasn't enrolled (no prerequisite).
+const lockReason = (module) => {
+  const req = module.progression?.unlock_requirement;
+  return req ? `Complete ${req.name} to unlock` : 'Enroll to unlock';
+};
+
+const ModuleRow = ({ module, index, trackId }) => {
+  const status = courseStatus(module);
+  const locked = status === 'locked';
+
+  const body = (
+    <>
+      <div
+        className={classNames(
+          'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+          locked ? 'bg-gray-100 text-gray-400' : 'bg-indigo-50 text-indigo-600',
+        )}
+      >
         {index + 1}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3
+            className={classNames(
+              'text-sm font-semibold',
+              locked ? 'text-gray-400' : 'text-gray-900',
+            )}
+          >
             {module.title}
           </h3>
           <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
             {LEVEL_LABELS[module.level] ?? module.level}
           </span>
+          <StatusBadge status={status} />
           {module.estimated_hours != null && (
             <span className="inline-flex items-center gap-x-1 text-xs text-gray-500">
               <ClockIcon className="size-3.5" />
@@ -42,13 +89,44 @@ const ModuleRow = ({ module, index, trackId }) => (
             </span>
           )}
         </div>
-        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-          {module.description}
-        </p>
+        {locked ? (
+          <p className="mt-1 text-sm font-medium text-gray-500">
+            {lockReason(module)}
+          </p>
+        ) : (
+          <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+            {module.description}
+          </p>
+        )}
       </div>
-    </Link>
-  </li>
-);
+    </>
+  );
+
+  // Locked courses stay visible on the roadmap but are NOT navigable and offer
+  // no entry action (the backend also denies direct access).
+  if (locked) {
+    return (
+      <li
+        aria-disabled="true"
+        className="flex cursor-not-allowed items-start gap-x-4 py-5"
+      >
+        {body}
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <Link
+        to="/learn/$trackId/$courseId"
+        params={{ trackId: String(trackId), courseId: String(module.id) }}
+        className="flex items-start gap-x-4 py-5 hover:bg-gray-50"
+      >
+        {body}
+      </Link>
+    </li>
+  );
+};
 
 const TrackDetail = () => {
   const { trackId } = useParams({ strict: false });

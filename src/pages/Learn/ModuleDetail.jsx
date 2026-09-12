@@ -99,9 +99,14 @@ const ModuleDetail = () => {
   const { trackId, courseId } = useParams({ strict: false });
   const router = useRouter();
 
-  const { data: module, isLoading: moduleLoading } = useQuery({
+  const {
+    data: module,
+    isLoading: moduleLoading,
+    isError: moduleError,
+  } = useQuery({
     queryKey: ['learn', 'module', trackId, courseId],
     queryFn: () => getModule(trackId, courseId),
+    retry: false,
   });
 
   const {
@@ -127,6 +132,21 @@ const ModuleDetail = () => {
 
       {moduleLoading ? (
         <p className="text-sm text-gray-500">Loading...</p>
+      ) : moduleError ? (
+        // The backend denies entry to a locked (or otherwise inaccessible)
+        // course; present it as locked rather than a raw error. Locked courses
+        // are not navigable from the roadmap, so this is the direct-URL path.
+        <div className="flex items-start gap-x-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <LockClosedIcon className="mt-0.5 size-5 shrink-0 text-gray-400" />
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              This course is locked
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Complete the previous course in this career to unlock it.
+            </p>
+          </div>
+        </div>
       ) : (
         module && (
           <div>
@@ -148,7 +168,7 @@ const ModuleDetail = () => {
         )
       )}
 
-      {sectionsLoading ? (
+      {moduleError ? null : sectionsLoading ? (
         <p className="text-sm text-gray-500">Loading curriculum...</p>
       ) : isError ? (
         <p className="text-sm text-red-600">{error.message}</p>
