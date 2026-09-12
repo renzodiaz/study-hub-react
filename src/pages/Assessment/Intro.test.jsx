@@ -110,6 +110,49 @@ describe('AssessmentIntro', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows a GENERIC course_locked reason (no invented prerequisite) and disables Start', async () => {
+    renderIntro(
+      baseMetadata({
+        can_start: false,
+        can_resume: false,
+        reason: 'course_locked',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        /complete the prerequisite course to unlock this assessment/i,
+      ),
+    ).toBeInTheDocument();
+    // React must NOT invent "previous course in this career" copy.
+    expect(
+      screen.queryByText(/previous course in this career/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /start assessment/i }),
+    ).toBeDisabled();
+  });
+
+  it('uses the API-provided prerequisite name for course_locked when present', async () => {
+    renderIntro(
+      baseMetadata({
+        can_start: false,
+        can_resume: false,
+        reason: 'course_locked',
+        unlock_requirement: {
+          slug: 'web-foundations',
+          name: 'Web Foundations',
+        },
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        /complete web foundations to unlock this assessment/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('starts an attempt via the API and navigates to the attempt shell on success', async () => {
     startAttempt.mockResolvedValue({ id: 'att_new_9' });
     renderIntro(baseMetadata({ can_start: true, can_resume: false }));

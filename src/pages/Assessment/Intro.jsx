@@ -22,6 +22,10 @@ const REASON_MESSAGE = {
     'An active paid subscription is required to take this credential assessment.',
   not_enrolled:
     'Enroll in a career track that includes this module to unlock the assessment.',
+  // Generic fallback — React never invents which course is the prerequisite. If
+  // the API supplies an unlock_requirement for this context, its name is used
+  // instead (see reasonMessage below).
+  course_locked: 'Complete the prerequisite course to unlock this assessment.',
   attempts_exhausted: 'You have used all of your attempts for this assessment.',
   cooldown_active: 'A cooldown is active before you can try again.',
 };
@@ -85,6 +89,16 @@ export default function AssessmentIntro() {
     ? new Date(assessment.next_eligible_at).toLocaleString()
     : null;
 
+  // Ineligibility copy. For a progression lock, prefer the API-provided
+  // prerequisite course name when present; otherwise a generic fallback. React
+  // never derives the prerequisite from course positions.
+  const lockedName = assessment.unlock_requirement?.name;
+  const reasonMessage =
+    assessment.reason === 'course_locked' && lockedName
+      ? `Complete ${lockedName} to unlock this assessment.`
+      : (REASON_MESSAGE[assessment.reason] ??
+        'You are not eligible to start yet.');
+
   const goToAttempt = () =>
     navigate({
       to: '/assessment-attempts/$attemptId',
@@ -131,8 +145,7 @@ export default function AssessmentIntro() {
             <div className="mt-6 flex items-start gap-2 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
               <LockClosedIcon className="mt-0.5 size-4 shrink-0" />
               <span>
-                {REASON_MESSAGE[assessment.reason] ??
-                  'You are not eligible to start yet.'}
+                {reasonMessage}
                 {assessment.reason === 'cooldown_active' && nextEligible && (
                   <> You can try again after {nextEligible}.</>
                 )}
