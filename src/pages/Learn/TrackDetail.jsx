@@ -8,7 +8,119 @@ import {
 } from '@heroicons/react/20/solid';
 
 import { getTrack, getTrackModules, getEnrollments, enroll } from '@api/learn';
+import { getCareerInterview } from '@api/assessments';
+import useBoundedPoll from '@hooks/useBoundedPoll';
 import { classNames } from '@utils/helpers';
+
+const credentialPending = (data) => data?.credential?.state === 'pending';
+
+const INTERVIEW_LEVEL_LABELS = {
+  junior: 'Junior',
+  mid: 'Mid',
+  senior: 'Senior',
+  staff: 'Staff',
+  principal: 'Principal',
+};
+
+const INTERVIEW_REASON = {
+  career_not_ready: 'Complete every course in this track to unlock it.',
+  no_active_subscription: 'A paid subscription is required to start it.',
+  cooldown_active: 'A cooldown is active before you can try again.',
+  attempts_exhausted: 'You have used all of your interview attempts.',
+};
+
+// Server-authoritative final-interview step. Renders qualification/attempt/
+// credential state as reported; never reconstructs readiness or retry rules.
+const FinalInterviewCard = ({ trackId }) => {
+  const { intervalFn, stopped, reset } = useBoundedPoll({
+    isPending: credentialPending,
+    fast: 5000,
+  });
+
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['career-interview', trackId],
+    queryFn: () => getCareerInterview(trackId),
+    retry: false,
+    // Bounded/backoff polling only while a passed interview's credential is
+    // still being issued; stops after the automatic window (see useBoundedPoll).
+    refetchInterval: intervalFn,
+  });
+
+  if (isLoading || isError || !data) return null; // no interview configured / unavailable
+
+  const { assessment, attempt, credential } = data;
+  const level =
+    INTERVIEW_LEVEL_LABELS[assessment.target_level] ?? assessment.target_level;
+
+  let statusLine;
+  let cta;
+  if (credential.state === 'issued') {
+    statusLine = 'Credential issued.';
+    cta = { to: '/achievements', label: 'View credential' };
+  } else if (attempt.state === 'passed') {
+    statusLine = stopped
+      ? 'Your interview is passed. Your credential is still being issued.'
+      : 'Interview passed — your credential is being issued…';
+  } else if (attempt.state === 'evaluating') {
+    statusLine = 'Your interview is being evaluated.';
+  } else if (attempt.state === 'in_progress' && attempt.can_resume) {
+    statusLine = 'You have an interview in progress.';
+    cta = {
+      to: '/assessment-attempts/$attemptId',
+      params: { attemptId: attempt.active_attempt_id },
+      label: 'Resume final interview',
+    };
+  } else if (attempt.can_start) {
+    statusLine = 'You are ready for the final interview.';
+    cta = {
+      to: '/learn/$trackId/interview',
+      params: { trackId: String(trackId) },
+      label:
+        attempt.state === 'failed'
+          ? 'Retry final interview'
+          : 'Start final interview',
+    };
+  } else {
+    statusLine = INTERVIEW_REASON[attempt.reason] ?? 'Not yet available.';
+  }
+
+  return (
+    <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">
+            Final interview · {level}
+          </h2>
+          <p className="mt-1 text-sm text-gray-700" role="status">
+            {statusLine}
+          </p>
+        </div>
+        {cta && (
+          <Link
+            to={cta.to}
+            params={cta.params}
+            className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          >
+            {cta.label}
+          </Link>
+        )}
+        {stopped && credentialPending(data) && (
+          <button
+            type="button"
+            onClick={() => {
+              reset();
+              refetch();
+            }}
+            disabled={isFetching}
+            className="inline-flex items-center rounded-md border border-indigo-300 px-3.5 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            {isFetching ? 'Checking…' : 'Check again'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const LEVEL_LABELS = {
   beginner: 'Beginner',
@@ -246,6 +358,8 @@ const TrackDetail = () => {
           </ul>
         )}
       </div>
+
+      <FinalInterviewCard trackId={trackId} />
     </div>
   );
 };

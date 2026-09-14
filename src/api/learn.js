@@ -94,3 +94,9 @@ export const getSeniorityBadges = () =>
 // Public certificate verification (no auth required).
 export const getPublicCertificate = (token) =>
   get(`/api/v1/public/certificates/${token}`, 'Certificate not found');
+
+// Unified public credential verification (no auth). The backend resolves the
+// token to a Certificate or SeniorityBadge and returns `credential_type` — the
+// frontend never infers type from the token or probes endpoints in sequence.
+export const getPublicCredential = (token) =>
+  get(`/api/v1/public/credentials/${token}`, 'Credential not found');

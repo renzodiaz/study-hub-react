@@ -23,6 +23,18 @@ export const getCourseAssessment = async (courseId) => {
   return res.json();
 };
 
+// Career final-interview discovery/intro/state (plain JSON, bespoke composite:
+// { assessment, qualification, attempt, credential }). The backend is the sole
+// authority for readiness, eligibility, attempt lifecycle, and credential state.
+export const getCareerInterview = async (trackId) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/career_tracks/${trackId}/interview`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to load interview');
+  return res.json();
+};
+
 // Start (or idempotently resume) an attempt. No body is sent — the server
 // decides version, number, timestamps, and state.
 export const startAttempt = async (assessmentId) => {
@@ -74,6 +86,22 @@ export const saveResponse = async (attemptId, itemId, selectedOptionIds) => {
       body: JSON.stringify({
         response_payload: { selected_option_ids: selectedOptionIds },
       }),
+    },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to save answer');
+  return res.json();
+};
+
+// Autosave one free_text (interview) answer. Sends only the candidate text; the
+// server derives everything authoritative and enforces max length/validation.
+export const saveTextResponse = async (attemptId, itemId, text) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/assessment_attempts/${attemptId}/responses/${itemId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ response_payload: { text } }),
     },
   );
   if (!res.ok) throw await parseError(res, 'Failed to save answer');

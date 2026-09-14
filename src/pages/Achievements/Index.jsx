@@ -125,24 +125,90 @@ const CertificateCard = ({ certificate }) => {
   );
 };
 
-const BadgeCard = ({ badge }) => (
-  <li className="flex items-center gap-x-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-    <div
-      className="flex size-12 shrink-0 items-center justify-center rounded-lg text-xl font-semibold text-white"
-      style={{ backgroundColor: badge.career_track_color ?? '#6366f1' }}
-    >
-      {badge.career_track_icon ?? '🏅'}
-    </div>
-    <div className="min-w-0">
-      <h3 className="truncate text-sm font-semibold text-gray-900">
-        {LEVEL_LABELS[badge.level] ?? badge.level} · {badge.career_track_name}
-      </h3>
-      <p className="text-xs text-gray-500">
-        Earned {formatDate(badge.earned_at)}
+// Text-first status (never color alone). Server-authoritative; no client rule.
+const BadgeStatus = ({ status }) => {
+  if (status === 'revoked') {
+    return (
+      <p className="mt-3 rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
+        <span className="font-semibold">Revoked</span> — this badge has been
+        explicitly revoked.
       </p>
-    </div>
-  </li>
-);
+    );
+  }
+  if (status === 'revalidation_required') {
+    return (
+      <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+        <span className="font-semibold">Revalidation required</span> — one of
+        the credentials used when this badge was issued now requires
+        revalidation.
+      </p>
+    );
+  }
+  if (status === 'valid') {
+    return (
+      <p className="mt-3 text-xs font-medium text-emerald-700">Status: Valid</p>
+    );
+  }
+  return null; // status omitted (older payload) — no claim made
+};
+
+const BadgeCard = ({ badge }) => {
+  const [copied, setCopied] = useState(false);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl(badge.public_token));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <li className="flex flex-col rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-x-4">
+        <div
+          className="flex size-12 shrink-0 items-center justify-center rounded-lg text-xl font-semibold text-white"
+          style={{ backgroundColor: badge.career_track_color ?? '#6366f1' }}
+        >
+          {badge.career_track_icon ?? '🏅'}
+        </div>
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-gray-900">
+            {LEVEL_LABELS[badge.level] ?? badge.level} ·{' '}
+            {badge.career_track_name}
+          </h3>
+          <p className="text-xs text-gray-500">
+            Earned {formatDate(badge.earned_at)}
+          </p>
+        </div>
+      </div>
+
+      {/* Authoritative status from the server (never computed client-side). */}
+      <BadgeStatus status={badge.status} />
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <a
+          href={publicUrl(badge.public_token)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
+        >
+          <ArrowTopRightOnSquareIcon className="size-4" />
+          Verify
+        </a>
+        <button
+          type="button"
+          onClick={copyLink}
+          className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+        >
+          <LinkIcon className="size-4" />
+          {copied ? 'Copied!' : 'Copy link'}
+        </button>
+      </div>
+    </li>
+  );
+};
 
 const Achievements = () => {
   const { data: certificates = [], isLoading: certsLoading } = useQuery({

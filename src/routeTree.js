@@ -24,7 +24,8 @@ import LessonViewer from '@pages/Learn/LessonViewer';
 import Achievements from '@pages/Achievements/Index';
 import AssessmentIntro from '@pages/Assessment/Intro';
 import AssessmentAttemptShell from '@pages/Assessment/AttemptShell';
-import VerifyCertificate from '@pages/Verify/Certificate';
+import InterviewIntro from '@pages/Interview/Intro';
+import VerifyCredential from '@pages/Verify/Credential';
 import Pricing from '@pages/Billing/Pricing';
 import BillingManage from '@pages/Billing/Manage';
 import BillingSuccess from '@pages/Billing/Success';
@@ -176,17 +177,26 @@ const assessmentAttemptRoute = createRoute({
   component: AssessmentAttemptShell,
 });
 
+// Career final-interview intro/discovery (start/resume/state). The active
+// attempt reuses the shared AttemptShell runner above.
+const interviewIntroRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'learn/$trackId/interview',
+  component: InterviewIntro,
+});
+
 const achievementsRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'achievements',
   component: Achievements,
 });
 
-// Public credential verification — no auth, no app shell.
-const verifyCertificateRoute = createRoute({
+// Public credential verification (Certificate OR SeniorityBadge) — no auth, no
+// app shell. Resolves the token via the unified backend endpoint.
+const verifyCredentialRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'verify/$token',
-  component: VerifyCertificate,
+  component: VerifyCredential,
 });
 
 // Public pricing + Stripe Checkout return pages (no auth, no app shell). Pricing
@@ -230,6 +240,7 @@ export const routeTree = rootRoute.addChildren([
     lessonRoute,
     assessmentIntroRoute,
     assessmentAttemptRoute,
+    interviewIntroRoute,
     myLearningRoute,
     myLearningTrackRoute,
     achievementsRoute,
@@ -244,7 +255,7 @@ export const routeTree = rootRoute.addChildren([
     studyHubEditorRoute,
   ]),
   authLayoutRoute.addChildren([loginRoute, registerRoute]),
-  verifyCertificateRoute,
+  verifyCredentialRoute,
   pricingRoute,
   billingSuccessRoute,
   billingCanceledRoute,
