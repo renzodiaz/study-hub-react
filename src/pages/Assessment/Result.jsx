@@ -125,7 +125,16 @@ export default function AssessmentResult({ attemptId, initialData }) {
         </div>
       </div>
 
-      {passed && interview && (
+      {/* A pilot attempt never issues a credential — say so explicitly and
+          never show credential-issued messaging, regardless of pass/fail. */}
+      {data.pilot && (
+        <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+          This was a <span className="font-semibold">pilot</span> assessment. No
+          credential is issued for pilot attempts — thank you for helping
+          evaluate it.
+        </div>
+      )}
+      {!data.pilot && passed && interview && (
         <div className="mt-6 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-800">
           Interview passed. Your seniority credential is being issued and will
           appear in{' '}
@@ -135,7 +144,7 @@ export default function AssessmentResult({ attemptId, initialData }) {
           shortly.
         </div>
       )}
-      {passed && !interview && (
+      {!data.pilot && passed && !interview && (
         <div className="mt-6 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-800">
           Your knowledge credential is being issued and will appear in{' '}
           <a href="/achievements" className="font-semibold underline">

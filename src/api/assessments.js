@@ -50,6 +50,33 @@ export const startAttempt = async (assessmentId) => {
   return normalize(await res.json());
 };
 
+// The current learner's own active pilot grants (dedicated navigation entry for
+// controlled-pilot / draft assessments). Plain JSON; safe metadata only.
+export const getPilotAssessments = async () => {
+  const res = await fetch(`${API_BASE}/api/v1/pilot_assessments`, {
+    credentials: 'include',
+  });
+  if (!res.ok) throw await parseError(res, 'Failed to load pilot assessments');
+  return res.json();
+};
+
+// Start (or idempotently resume) a CONTROLLED PILOT attempt. Like startAttempt,
+// no body is sent — the server resolves the caller's active grant, the exact
+// draft version, and the content checksum. The client never sends a version id
+// or checksum.
+export const startPilotAttempt = async (assessmentId) => {
+  const res = await fetch(
+    `${API_BASE}/api/v1/assessments/${assessmentId}/pilot_attempt`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    },
+  );
+  if (!res.ok) throw await parseError(res, 'Failed to start pilot assessment');
+  return normalize(await res.json());
+};
+
 // Restore an attempt from the server (owner-only). Refresh-safe: state is
 // always re-read here, never from local storage.
 export const getAttempt = async (attemptId) => {
