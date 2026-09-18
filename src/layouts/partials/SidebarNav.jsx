@@ -3,6 +3,7 @@ import { classNames } from '@utils/helpers';
 
 import {
   AcademicCapIcon,
+  BeakerIcon,
   CalendarIcon,
   ChartPieIcon,
   Cog6ToothIcon,
@@ -22,6 +23,7 @@ const NAVIGATION = [
   { name: 'Explore', to: '/learn', icon: AcademicCapIcon },
   { name: 'My learning', to: '/my-learning', icon: BookOpenIcon },
   { name: 'Achievements', to: '/achievements', icon: TrophyIcon },
+  { name: 'Pilots', to: '/pilots', icon: BeakerIcon },
   { name: 'Billing', to: '/billing', icon: CreditCardIcon },
   {
     name: 'Career Tracks',

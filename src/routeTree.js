@@ -24,6 +24,7 @@ import LessonViewer from '@pages/Learn/LessonViewer';
 import Achievements from '@pages/Achievements/Index';
 import AssessmentIntro from '@pages/Assessment/Intro';
 import AssessmentAttemptShell from '@pages/Assessment/AttemptShell';
+import Pilots from '@pages/Assessment/Pilots';
 import InterviewIntro from '@pages/Interview/Intro';
 import VerifyCredential from '@pages/Verify/Credential';
 import Pricing from '@pages/Billing/Pricing';
@@ -171,6 +172,12 @@ const assessmentIntroRoute = createRoute({
   component: AssessmentIntro,
 });
 
+const pilotsRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'pilots',
+  component: Pilots,
+});
+
 const assessmentAttemptRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'assessment-attempts/$attemptId',
@@ -240,6 +247,7 @@ export const routeTree = rootRoute.addChildren([
     lessonRoute,
     assessmentIntroRoute,
     assessmentAttemptRoute,
+    pilotsRoute,
     interviewIntroRoute,
     myLearningRoute,
     myLearningTrackRoute,
