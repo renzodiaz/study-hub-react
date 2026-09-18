@@ -7,7 +7,13 @@ import {
   LockClosedIcon,
 } from '@heroicons/react/20/solid';
 
+import { lazy, Suspense } from 'react';
+
 import { getLesson, completeLesson } from '@api/learn';
+
+// Markdown + syntax-highlighting deps are heavy and only needed on a lesson
+// page, so the renderer is code-split out of the initial app bundle.
+const LessonContent = lazy(() => import('@components/LessonContent'));
 
 const QUIZ_TYPES = ['quiz_gate', 'mcq'];
 
@@ -32,12 +38,14 @@ const LessonBody = ({ lesson }) => {
     );
   }
 
-  // article / narrative
+  // article / narrative — Markdown with safe code highlighting (lazy-loaded).
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <div className="whitespace-pre-wrap text-sm leading-7 text-gray-800">
-        {lesson.content}
-      </div>
+      <Suspense
+        fallback={<p className="text-sm text-gray-400">Loading lesson…</p>}
+      >
+        <LessonContent markdown={lesson.content} />
+      </Suspense>
     </div>
   );
 };
@@ -112,34 +120,51 @@ const LessonViewer = () => {
 
       <LessonBody lesson={lesson} />
 
-      <div className="flex items-center justify-end gap-x-3">
-        {!isQuiz &&
-          (lesson.completed ? (
-            <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3.5 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
-              <CheckCircleIcon className="size-5" />
-              Completed
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => markComplete()}
-              disabled={isPending}
-              className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          {lesson.prev_lesson_id && (
+            <Link
+              to="/lessons/$lessonId"
+              params={{ lessonId: String(lesson.prev_lesson_id) }}
+              aria-label="Previous lesson"
+              className="inline-flex items-center gap-x-1.5 rounded-md px-3.5 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
             >
-              {isPending ? 'Saving…' : 'Mark as complete'}
-            </button>
-          ))}
+              <ArrowLeftIcon className="size-4" />
+              Previous lesson
+            </Link>
+          )}
+        </div>
 
-        {lesson.next_lesson_id && (
-          <Link
-            to="/lessons/$lessonId"
-            params={{ lessonId: String(lesson.next_lesson_id) }}
-            className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700"
-          >
-            Next lesson
-            <ArrowRightIcon className="size-4" />
-          </Link>
-        )}
+        <div className="flex items-center gap-x-3">
+          {!isQuiz &&
+            (lesson.completed ? (
+              <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3.5 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
+                <CheckCircleIcon className="size-5" />
+                Completed
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => markComplete()}
+                disabled={isPending}
+                className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {isPending ? 'Saving…' : 'Mark as complete'}
+              </button>
+            ))}
+
+          {lesson.next_lesson_id && (
+            <Link
+              to="/lessons/$lessonId"
+              params={{ lessonId: String(lesson.next_lesson_id) }}
+              aria-label="Next lesson"
+              className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700"
+            >
+              Next lesson
+              <ArrowRightIcon className="size-4" />
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
