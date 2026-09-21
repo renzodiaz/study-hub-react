@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { renderWithProviders } from '@test/renderWithProviders';
 import TrackDetail from './TrackDetail';
@@ -9,7 +10,7 @@ vi.mock('@api/learn', () => ({
   getEnrollments: vi.fn(),
   enroll: vi.fn(),
 }));
-import { getTrack, getTrackModules, getEnrollments } from '@api/learn';
+import { getTrack, getTrackModules, getEnrollments, enroll } from '@api/learn';
 
 const track = {
   id: 'react',
@@ -153,6 +154,84 @@ describe('TrackDetail roadmap progression', () => {
     // The misleading empty-modules shell must not appear for an unavailable track.
     expect(
       screen.queryByText(/no modules in this career yet/i),
+    ).not.toBeInTheDocument();
+  });
+});
+
+// The roadmap/progression is derived from enrollment; enrolling must refresh it
+// immediately (no browser reload). This behavior is track-agnostic — it applies
+// identically to a normal published track and a controlled Preview track.
+describe('TrackDetail enrollment refresh', () => {
+  const lockedCourse = {
+    id: 'c-a',
+    title: 'Web Foundations',
+    level: 'beginner',
+    description: 'x',
+    progression: {
+      status: 'locked',
+      completed: false,
+      unlocked: false,
+      unlock_requirement: null,
+    },
+  };
+  const availableCourse = {
+    ...lockedCourse,
+    progression: {
+      status: 'available',
+      completed: false,
+      unlocked: true,
+      unlock_requirement: null,
+    },
+  };
+
+  it('refreshes the roadmap and CTA after enrollment without a page reload', async () => {
+    getTrack.mockResolvedValue(track);
+    getEnrollments
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([
+        { id: 'e1', career_track: { id: 'react' }, progress: { percent: 10 } },
+      ]);
+    getTrackModules
+      .mockResolvedValueOnce([lockedCourse])
+      .mockResolvedValue([availableCourse]);
+    enroll.mockResolvedValue({});
+
+    renderTrack();
+
+    // Pre-enrollment: locked and not navigable.
+    expect(await screen.findByText('Enroll to unlock')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /web foundations/i }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enroll' }));
+
+    // Post-enrollment WITHOUT reload: the newly unlocked course is now navigable,
+    // the "Enroll to unlock" prompt is gone, and the CTA reflects enrollment.
+    expect(
+      await screen.findByRole('link', { name: /web foundations/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Enroll to unlock')).not.toBeInTheDocument();
+    expect(screen.getByText(/enrolled ·/i)).toBeInTheDocument();
+  });
+
+  it('does not optimistically unlock the roadmap when enrollment fails', async () => {
+    getTrack.mockResolvedValue(track);
+    getEnrollments.mockResolvedValue([]);
+    getTrackModules.mockResolvedValue([lockedCourse]);
+    enroll.mockRejectedValue(new Error('enrollment failed'));
+
+    renderTrack();
+    expect(await screen.findByText('Enroll to unlock')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enroll' }));
+
+    await waitFor(() => expect(enroll).toHaveBeenCalledTimes(1));
+    // Stays locked; no false enrolled/unlocked state.
+    expect(screen.getByText('Enroll to unlock')).toBeInTheDocument();
+    expect(screen.queryByText(/enrolled ·/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /web foundations/i }),
     ).not.toBeInTheDocument();
   });
 });

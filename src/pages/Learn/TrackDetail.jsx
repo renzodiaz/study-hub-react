@@ -280,8 +280,14 @@ const TrackDetail = () => {
 
   const { mutate: enrollMutate, isPending: enrolling } = useMutation({
     mutationFn: () => enroll(trackId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['learn', 'enrollments'] }),
+    // Enrolling changes progression: the enrollment list (CTA + My Learning) AND
+    // this track's roadmap (['learn','track',trackId] also covers the '…modules'
+    // query by prefix), which now reflects the newly unlocked first course. Only
+    // runs on confirmed success, so a failed enrollment never unlocks the UI.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['learn', 'enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['learn', 'track', trackId] });
+    },
   });
 
   return (

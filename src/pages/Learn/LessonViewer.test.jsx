@@ -30,6 +30,17 @@ const renderViewer = (data) => {
 };
 
 describe('LessonViewer', () => {
+  // LessonViewer code-splits the Markdown renderer via React.lazy(() =>
+  // import('@components/LessonContent')). Its dependency tree (react-markdown +
+  // syntax highlighter) is heavy, so a COLD dynamic import under full-suite
+  // parallel load could occasionally exceed findBy's default 1s timeout, making
+  // this suite flaky. Warming the module once (real integration, not a mock) so
+  // the in-component lazy import resolves from cache removes that race
+  // deterministically without touching production code, sleeps, or timeouts.
+  beforeAll(async () => {
+    await import('@components/LessonContent');
+  });
+
   beforeEach(() => vi.clearAllMocks());
 
   it('renders Markdown content and Previous/Next navigation', async () => {
