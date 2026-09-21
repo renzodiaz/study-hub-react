@@ -30,7 +30,7 @@ const PreviewCard = ({ track }) => (
   </Link>
 );
 
-const EnrollmentCard = ({ enrollment }) => {
+const EnrollmentCard = ({ enrollment, isPreview = false }) => {
   const track = enrollment.career_track;
   const { percent = 0, completed = 0, total = 0 } = enrollment.progress ?? {};
 
@@ -38,7 +38,7 @@ const EnrollmentCard = ({ enrollment }) => {
     <Link
       to="/my-learning/$trackId"
       params={{ trackId: String(track.id) }}
-      className="group flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+      className={`group flex flex-col rounded-lg border bg-white p-6 shadow-sm transition hover:shadow-md ${isPreview ? 'border-indigo-200 hover:border-indigo-300' : 'border-gray-200 hover:border-indigo-300'}`}
     >
       <div className="flex items-center gap-x-4">
         <div
@@ -47,9 +47,16 @@ const EnrollmentCard = ({ enrollment }) => {
         >
           {track.icon ?? '📚'}
         </div>
-        <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600">
-          {track.name}
-        </h3>
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600">
+            {track.name}
+          </h3>
+          {isPreview && (
+            <span className="mt-1 inline-flex w-fit items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+              Preview — not yet publicly released
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-6">
@@ -86,11 +93,25 @@ const MyLearning = () => {
     queryFn: getPreviewTracks,
   });
 
+  // A CareerTrack can be both Preview-granted AND enrolled; those are distinct
+  // domain records but ONE learning program, so it must appear once. Dedupe by
+  // stable CareerTrack id (sqid) — never by title. Enrolled tracks are the
+  // learner's primary state, so they render as the enrolled/progress card; a
+  // still-Preview enrolled track keeps a subtle Preview indicator. Preview grants
+  // with no enrollment yet stay under "Preview access".
+  const enrolledTrackIds = new Set(
+    enrollments.map((e) => e.career_track?.id).filter(Boolean),
+  );
+  const previewTrackIds = new Set(previewTracks.map((t) => t.id));
+  const previewOnlyTracks = previewTracks.filter(
+    (t) => !enrolledTrackIds.has(t.id),
+  );
+
   return (
     <>
       <ContentHeading title="My learning" />
 
-      {previewTracks.length > 0 && (
+      {previewOnlyTracks.length > 0 && (
         <section className="mb-8">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Preview access
@@ -99,7 +120,7 @@ const MyLearning = () => {
             Careers you can preview before they&apos;re publicly released.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {previewTracks.map((track) => (
+            {previewOnlyTracks.map((track) => (
               <PreviewCard key={track.id} track={track} />
             ))}
           </div>
@@ -125,7 +146,11 @@ const MyLearning = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {enrollments.map((enrollment) => (
-            <EnrollmentCard key={enrollment.id} enrollment={enrollment} />
+            <EnrollmentCard
+              key={enrollment.id}
+              enrollment={enrollment}
+              isPreview={previewTrackIds.has(enrollment.career_track?.id)}
+            />
           ))}
         </div>
       )}
