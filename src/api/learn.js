@@ -1,11 +1,25 @@
 import { normalize } from '@utils/jsonapi';
+import { refreshSession } from './auth';
 
 // Learner-facing catalog API — hits the PUBLIC endpoints (read-only), distinct
 // from the admin authoring modules under the same resource names.
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+// The access token expires after 15 minutes. If a request comes back 401 (e.g.
+// the learner spent a while reading a lesson before clicking "Mark as
+// complete"), refresh the session once and retry — otherwise the completion POST
+// and the follow-up refetch both fail and the learner cannot progress.
+const requestWithRefresh = async (path, options) => {
+  let res = await fetch(`${API_BASE}${path}`, options);
+  if (res.status === 401) {
+    const refreshed = await refreshSession();
+    if (refreshed) res = await fetch(`${API_BASE}${path}`, options);
+  }
+  return res;
+};
+
 const get = async (path, errorMessage) => {
-  const res = await fetch(`${API_BASE}${path}`, { credentials: 'include' });
+  const res = await requestWithRefresh(path, { credentials: 'include' });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? body.errors?.join(', ') ?? errorMessage);
@@ -14,7 +28,7 @@ const get = async (path, errorMessage) => {
 };
 
 const send = async (path, method, body, errorMessage) => {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await requestWithRefresh(path, {
     method,
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
