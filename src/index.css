@@ -1,1 +1,7 @@
 @import 'tailwindcss';
+
+/* Explicit app background so page-level headings never rely on the user-agent
+   default canvas (content cards remain white on this light surface). */
+body {
+  background-color: var(--color-gray-50, #f9fafb);
+}

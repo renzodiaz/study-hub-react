@@ -1,8 +1,7 @@
-import { useParams, useRouter, Link } from '@tanstack/react-router';
+import { useParams, useRouter } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
-  ArrowRightIcon,
   CheckCircleIcon,
   LockClosedIcon,
 } from '@heroicons/react/20/solid';
@@ -10,6 +9,8 @@ import {
 import { lazy, Suspense } from 'react';
 
 import { getLesson, completeLesson } from '@api/learn';
+import LessonContextHeader from '@components/learn/LessonContextHeader';
+import LessonNav from '@components/learn/LessonNav';
 
 // Markdown + syntax-highlighting deps are heavy and only needed on a lesson
 // page, so the renderer is code-split out of the initial app bundle.
@@ -101,70 +102,65 @@ const LessonViewer = () => {
   }
 
   const isQuiz = QUIZ_TYPES.includes(lesson.lesson_type);
+  const context = lesson.context;
+  const trackId = context?.career?.id;
+  const courseId = context?.course?.id;
+  // Where "Course overview" / a boundary card should return to — the course page
+  // when we can resolve an accessible track, else browser history.
+  const courseOverviewTo =
+    trackId && courseId
+      ? { to: '/learn/$trackId/$courseId', params: { trackId, courseId } }
+      : null;
+  const goBack = () => router.history.back();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <button
         type="button"
-        onClick={() => router.history.back()}
+        onClick={goBack}
         className="inline-flex items-center gap-x-1 text-sm font-medium text-gray-500 hover:text-gray-700"
       >
         <ArrowLeftIcon className="size-4" />
         Back
       </button>
 
-      <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-        {lesson.title}
-      </h1>
+      <LessonContextHeader context={context} />
 
-      <LessonBody lesson={lesson} />
+      <div className="space-y-6 border-t border-gray-100 pt-6">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          {lesson.title}
+        </h1>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          {lesson.prev_lesson_id && (
-            <Link
-              to="/lessons/$lessonId"
-              params={{ lessonId: String(lesson.prev_lesson_id) }}
-              aria-label="Previous lesson"
-              className="inline-flex items-center gap-x-1.5 rounded-md px-3.5 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-            >
-              <ArrowLeftIcon className="size-4" />
-              Previous lesson
-            </Link>
-          )}
-        </div>
-
-        <div className="flex items-center gap-x-3">
-          {!isQuiz &&
-            (lesson.completed ? (
-              <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3.5 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
-                <CheckCircleIcon className="size-5" />
-                Completed
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => markComplete()}
-                disabled={isPending}
-                className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
-              >
-                {isPending ? 'Saving…' : 'Mark as complete'}
-              </button>
-            ))}
-
-          {lesson.next_lesson_id && (
-            <Link
-              to="/lessons/$lessonId"
-              params={{ lessonId: String(lesson.next_lesson_id) }}
-              aria-label="Next lesson"
-              className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700"
-            >
-              Next lesson
-              <ArrowRightIcon className="size-4" />
-            </Link>
-          )}
-        </div>
+        <LessonBody lesson={lesson} />
       </div>
+
+      {!isQuiz && (
+        <div className="flex justify-end">
+          {lesson.completed ? (
+            <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3.5 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
+              <CheckCircleIcon className="size-5" />
+              Completed
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => markComplete()}
+              disabled={isPending}
+              className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {isPending ? 'Saving…' : 'Mark as complete'}
+            </button>
+          )}
+        </div>
+      )}
+
+      <LessonNav
+        context={context}
+        prevId={lesson.prev_lesson_id}
+        nextId={lesson.next_lesson_id}
+        courseOverviewTo={courseOverviewTo}
+        onBack={goBack}
+      />
     </div>
   );
 };
