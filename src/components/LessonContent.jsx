@@ -55,33 +55,44 @@ const safeUrl = (url) => {
   return ''; // any other scheme (javascript:, data:, vbscript:, …) is dropped
 };
 
-const CodeBlock = ({ inline, className, children }) => {
-  const text = String(children ?? '').replace(/\n$/, '');
-  if (inline) {
-    return (
-      <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[0.85em] text-pink-700">
-        {text}
-      </code>
-    );
-  }
-  const raw = /language-(\w+)/.exec(className || '')?.[1]?.toLowerCase();
+// react-markdown v9 renders INLINE code as a bare <code> (no <pre> wrapper) and
+// FENCED/BLOCK code as <pre><code class="language-x">…</code></pre>. v9 dropped
+// the old `inline` flag, so responsibilities are split by element:
+//   • `code` → inline only: a styled <code> that stays inside its sentence.
+//   • `pre`  → the sole block renderer: it reads the language + text from its
+//     child <code> and emits one highlighted block. Because this is the only
+//     place we emit a highlighted block, a <pre> can never nest inside a <p>
+//     (which is invalid HTML and triggers a hydration error).
+const InlineCode = ({ children }) => (
+  <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[0.85em] text-pink-700">
+    {children}
+  </code>
+);
+
+const CodeBlock = ({ children }) => {
+  const codeEl = Array.isArray(children) ? children[0] : children;
+  const className = codeEl?.props?.className || '';
+  const text = String(codeEl?.props?.children ?? '').replace(/\n$/, '');
+  const raw = /language-(\w+)/.exec(className)?.[1]?.toLowerCase();
   const language = LANGUAGE_ALIAS[raw] || raw;
   const highlight = language && SUPPORTED.has(language);
 
   return (
-    <SyntaxHighlighter
-      language={highlight ? language : undefined}
-      style={oneLight}
-      customStyle={{
-        margin: 0,
-        borderRadius: '0.5rem',
-        fontSize: '0.85rem',
-        background: '#f8fafc',
-      }}
-      codeTagProps={{ className: 'font-mono' }}
-    >
-      {text}
-    </SyntaxHighlighter>
+    <div className="mt-4 overflow-x-auto">
+      <SyntaxHighlighter
+        language={highlight ? language : undefined}
+        style={oneLight}
+        customStyle={{
+          margin: 0,
+          borderRadius: '0.5rem',
+          fontSize: '0.85rem',
+          background: '#f8fafc',
+        }}
+        codeTagProps={{ className: 'font-mono' }}
+      >
+        {text}
+      </SyntaxHighlighter>
+    </div>
   );
 };
 
@@ -126,8 +137,8 @@ const COMPONENTS = {
       />
     );
   },
-  pre: (p) => <div className="mt-4 overflow-x-auto" {...p} />,
-  code: CodeBlock,
+  pre: CodeBlock,
+  code: InlineCode,
   table: (p) => (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full border-collapse text-sm" {...p} />

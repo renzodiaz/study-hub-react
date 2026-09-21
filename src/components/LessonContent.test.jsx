@@ -28,6 +28,49 @@ describe('LessonContent — formatting', () => {
     expect(container.textContent).toContain('const y: number = 2;');
   });
 
+  // Regression: react-markdown v9 dropped the `inline` flag, so inline code was
+  // being rendered as a block <pre> INSIDE the paragraph — invalid HTML that broke
+  // the reading flow and triggered React hydration errors.
+  describe('inline vs block code (valid, non-nesting HTML)', () => {
+    it('keeps a single inline-code fragment inline, not a <pre>', () => {
+      const { container } = renderMd('This prints `first` in order.');
+      const p = container.querySelector('p');
+      expect(p).toBeTruthy();
+      expect(p.querySelector('code')).toBeTruthy(); // inline <code> inside the <p>
+      expect(p.querySelector('pre')).toBeNull(); // never a block <pre> inside the <p>
+      expect(p.textContent).toContain('This prints');
+      expect(p.textContent).toContain('in order');
+    });
+
+    it('keeps multiple inline-code fragments inline within one sentence', () => {
+      const { container } = renderMd(
+        'This prints `first`, `second`, `third` in that order.',
+      );
+      const p = container.querySelector('p');
+      expect(p.querySelectorAll('code')).toHaveLength(3);
+      expect(container.querySelectorAll('pre')).toHaveLength(0);
+    });
+
+    it('renders a fenced block as a real <pre> block (sibling of paragraphs)', () => {
+      const { container } = renderMd(
+        'Before.\n\n```\nstart\nresult is 10\n```\n\nAfter.',
+      );
+      expect(container.querySelectorAll('pre')).toHaveLength(1);
+      expect(container.textContent).toContain('start');
+      expect(container.textContent).toContain('result is 10');
+    });
+
+    it('NEVER nests a block (<pre>/<div>) inside a <p> — no hydration error', () => {
+      const { container } = renderMd(
+        'This prints `first`, `second`, `third`.\n\n```\nstart\nresult is 10\n```\n\n`start` logs first because `x` is not called.',
+      );
+      expect(container.querySelectorAll('p pre')).toHaveLength(0);
+      expect(container.querySelectorAll('p div')).toHaveLength(0);
+      // and the inline fragments are still inline <code> inside their paragraphs
+      expect(container.querySelectorAll('p code').length).toBeGreaterThan(0);
+    });
+  });
+
   it('degrades an unknown language to a plain code block without crashing', () => {
     const { container } = renderMd('```klingon\nnuqneH\n```');
     expect(container.textContent).toContain('nuqneH');

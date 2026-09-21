@@ -2,13 +2,35 @@ import { normalize } from '@utils/jsonapi';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
-export const getMe = async () => {
-  const res = await fetch(`${API_BASE}/api/v1/me`, {
+// The access token is short-lived (15 min, httpOnly cookie); the refresh token
+// lives longer. Exchange it for a fresh access token so a learner who spends a
+// while on a lesson isn't silently logged out mid-action. De-duped so a burst of
+// concurrent 401s triggers exactly one refresh. Resolves true on success.
+let refreshInFlight = null;
+export const refreshSession = () => {
+  refreshInFlight ??= fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    method: 'POST',
     credentials: 'include',
-  });
+  })
+    .then((res) => res.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+};
 
+export const getMe = async () => {
+  let res = await fetch(`${API_BASE}/api/v1/me`, { credentials: 'include' });
+  // A 401 here would otherwise bounce a still-refreshable learner to /login on
+  // the next navigation (e.g. opening the next lesson). Refresh once and retry.
+  if (res.status === 401) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      res = await fetch(`${API_BASE}/api/v1/me`, { credentials: 'include' });
+    }
+  }
   if (!res.ok) return null;
-
   return normalize(await res.json());
 };
 
