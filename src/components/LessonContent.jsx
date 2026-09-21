@@ -158,7 +158,9 @@ const COMPONENTS = {
 // never execute script or inject markup.
 export default function LessonContent({ markdown }) {
   return (
-    <div className="lesson-content">
+    // Constrain prose to a comfortable reading measure (~68ch) and drop the
+    // leading top margin so the first heading sits flush with the card.
+    <div className="lesson-content max-w-[68ch] [&>*:first-child]:mt-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         skipHtml
