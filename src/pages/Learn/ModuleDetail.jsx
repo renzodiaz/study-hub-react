@@ -133,17 +133,20 @@ const ModuleDetail = () => {
       {moduleLoading ? (
         <p className="text-sm text-gray-500">Loading...</p>
       ) : moduleError ? (
-        // The backend denies entry to a locked (or otherwise inaccessible)
-        // course; present it as locked rather than a raw error. Locked courses
-        // are not navigable from the roadmap, so this is the direct-URL path.
+        // The backend intentionally hides an inaccessible course (404/403) and
+        // does not disclose the exact reason (progression vs entitlement vs
+        // unpublished), so we show neutral copy rather than inventing a
+        // prerequisite. Server-authoritative "complete X to unlock" messaging
+        // lives on the roadmap (TrackDetail), which carries explicit progression
+        // state; this is the bare direct-URL path.
         <div className="flex items-start gap-x-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
           <LockClosedIcon className="mt-0.5 size-5 shrink-0 text-gray-400" />
           <div>
             <p className="text-sm font-semibold text-gray-900">
-              This course is locked
+              This course isn&apos;t available
             </p>
             <p className="mt-1 text-sm text-gray-500">
-              Complete the previous course in this career to unlock it.
+              This course isn&apos;t available to your account.
             </p>
           </div>
         </div>

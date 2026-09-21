@@ -31,9 +31,13 @@ describe('ModuleDetail', () => {
     renderModule();
 
     expect(
-      await screen.findByText(/this course is locked/i),
+      await screen.findByText(/this course isn't available to your account/i),
     ).toBeInTheDocument();
-    // No raw error, no curriculum, no assessment CTA for a locked course.
+    // Neutral copy — no invented prerequisite reason.
+    expect(
+      screen.queryByText(/complete the previous course/i),
+    ).not.toBeInTheDocument();
+    // No raw error, no curriculum, no assessment CTA for an inaccessible course.
     expect(
       screen.queryByRole('link', { name: /credential assessment/i }),
     ).not.toBeInTheDocument();

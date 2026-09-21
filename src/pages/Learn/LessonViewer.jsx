@@ -90,11 +90,10 @@ const LessonViewer = () => {
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
           <LockClosedIcon className="mx-auto size-8 text-amber-500" />
           <p className="mt-3 text-sm font-medium text-amber-800">
-            This lesson is locked
+            This lesson isn&apos;t available
           </p>
           <p className="mt-1 text-sm text-amber-700">
-            Complete the previous lessons, enroll in the career, or upgrade your
-            plan to unlock it.
+            This lesson isn&apos;t available to your account.
           </p>
         </div>
       </div>

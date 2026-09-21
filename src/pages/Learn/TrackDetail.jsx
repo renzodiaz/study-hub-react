@@ -250,16 +250,20 @@ const TrackDetail = () => {
   const backTo = fromMyLearning ? '/my-learning' : '/learn';
   const backLabel = fromMyLearning ? 'My learning' : 'All careers';
 
-  const { data: track, isLoading: trackLoading } = useQuery({
+  const {
+    data: track,
+    isLoading: trackLoading,
+    isError: trackError,
+  } = useQuery({
     queryKey: ['learn', 'track', trackId],
     queryFn: () => getTrack(trackId),
+    retry: false,
   });
 
   const {
     data: modules = [],
     isLoading: modulesLoading,
     isError,
-    error,
   } = useQuery({
     queryKey: ['learn', 'track', trackId, 'modules'],
     queryFn: () => getTrackModules(trackId),
@@ -292,6 +296,12 @@ const TrackDetail = () => {
 
       {trackLoading ? (
         <p className="text-sm text-gray-500">Loading...</p>
+      ) : trackError ? (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
+          <p className="text-sm font-medium text-gray-800">
+            This career isn&apos;t available to your account.
+          </p>
+        </div>
       ) : (
         track && (
           <div className="flex items-start justify-between gap-x-4">
@@ -333,33 +343,37 @@ const TrackDetail = () => {
         )
       )}
 
-      <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Modules
-        </h2>
-        {modulesLoading ? (
-          <p className="mt-4 text-sm text-gray-500">Loading modules...</p>
-        ) : isError ? (
-          <p className="mt-4 text-sm text-red-600">{error.message}</p>
-        ) : modules.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-500">
-            No modules in this career yet.
-          </p>
-        ) : (
-          <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white px-6 shadow-sm">
-            {modules.map((module, index) => (
-              <ModuleRow
-                key={module.id}
-                module={module}
-                index={index}
-                trackId={trackId}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
+      {!trackError && (
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Modules
+          </h2>
+          {modulesLoading ? (
+            <p className="mt-4 text-sm text-gray-500">Loading modules...</p>
+          ) : isError ? (
+            <p className="mt-4 text-sm text-gray-500">
+              Modules aren&apos;t available to your account.
+            </p>
+          ) : modules.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-500">
+              No modules in this career yet.
+            </p>
+          ) : (
+            <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white px-6 shadow-sm">
+              {modules.map((module, index) => (
+                <ModuleRow
+                  key={module.id}
+                  module={module}
+                  index={index}
+                  trackId={trackId}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
-      <FinalInterviewCard trackId={trackId} />
+      {!trackError && <FinalInterviewCard trackId={trackId} />}
     </div>
   );
 };

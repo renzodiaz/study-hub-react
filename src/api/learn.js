@@ -32,6 +32,12 @@ const send = async (path, method, body, errorMessage) => {
 export const getTracks = () =>
   get('/api/v1/career_tracks', 'Failed to load career tracks');
 
+// Controlled-access ("Preview") tracks for the current learner — otherwise
+// unpublished careers they have been explicitly granted access to. Caller-scoped;
+// returns an empty list when the learner has no grants.
+export const getPreviewTracks = () =>
+  get('/api/v1/preview_tracks', 'Failed to load preview access');
+
 export const getTrack = (trackId) =>
   get(`/api/v1/career_tracks/${trackId}`, 'Failed to load career track');
 
