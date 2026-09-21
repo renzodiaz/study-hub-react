@@ -141,4 +141,18 @@ describe('TrackDetail roadmap progression', () => {
     renderTrack();
     expect(await screen.findByText('Enroll to unlock')).toBeInTheDocument();
   });
+
+  it('shows a neutral not-available panel when the track load is denied', async () => {
+    getTrack.mockRejectedValue(new Error('Not found'));
+    getTrackModules.mockRejectedValue(new Error('Not found'));
+    renderTrack();
+
+    expect(
+      await screen.findByText(/this career isn't available to your account/i),
+    ).toBeInTheDocument();
+    // The misleading empty-modules shell must not appear for an unavailable track.
+    expect(
+      screen.queryByText(/no modules in this career yet/i),
+    ).not.toBeInTheDocument();
+  });
 });

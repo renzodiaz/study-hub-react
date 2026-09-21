@@ -1,8 +1,34 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
-import { getEnrollments } from '@api/learn';
+import { getEnrollments, getPreviewTracks } from '@api/learn';
 import ContentHeading from '@layouts/partials/ContentHeading';
+
+// A controlled-access ("Preview") career the learner has been granted access to
+// while it is not yet publicly released. Discovery only — links into the normal
+// TrackDetail experience; deliberately makes no claim about the credential/exam.
+const PreviewCard = ({ track }) => (
+  <Link
+    to="/learn/$trackId"
+    params={{ trackId: String(track.id) }}
+    className="group flex flex-col rounded-lg border border-indigo-200 bg-white p-6 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+  >
+    <div className="flex items-center gap-x-4">
+      <div
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white"
+        style={{ backgroundColor: track.color ?? '#6366f1' }}
+      >
+        {track.icon ?? '📚'}
+      </div>
+      <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600">
+        {track.name}
+      </h3>
+    </div>
+    <span className="mt-4 inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+      Preview — not yet publicly released
+    </span>
+  </Link>
+);
 
 const EnrollmentCard = ({ enrollment }) => {
   const track = enrollment.career_track;
@@ -55,9 +81,30 @@ const MyLearning = () => {
     queryFn: getEnrollments,
   });
 
+  const { data: previewTracks = [] } = useQuery({
+    queryKey: ['learn', 'preview-tracks'],
+    queryFn: getPreviewTracks,
+  });
+
   return (
     <>
       <ContentHeading title="My learning" />
+
+      {previewTracks.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Preview access
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Careers you can preview before they&apos;re publicly released.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {previewTracks.map((track) => (
+              <PreviewCard key={track.id} track={track} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-gray-500">Loading your learning...</p>
