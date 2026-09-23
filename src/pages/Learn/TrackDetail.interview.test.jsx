@@ -53,10 +53,10 @@ describe('TrackDetail final-interview card', () => {
     getCareerInterview.mockResolvedValue(payload());
     render();
     expect(
-      await screen.findByText(/You are ready for the final interview/i),
+      await screen.findByText(/ready for the Final Qualification/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /start final interview/i }),
+      screen.getByRole('link', { name: /start final qualification/i }),
     ).toBeInTheDocument();
   });
 
@@ -66,10 +66,10 @@ describe('TrackDetail final-interview card', () => {
     );
     render();
     expect(
-      await screen.findByText(/Complete every course in this track/i),
+      await screen.findByText(/Opens when every course in this career/i),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: /start final interview/i }),
+      screen.queryByRole('link', { name: /start final qualification/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -98,7 +98,7 @@ describe('TrackDetail final-interview card', () => {
   it('renders nothing when no interview is configured (query error)', async () => {
     getCareerInterview.mockRejectedValue(new Error('not configured'));
     render();
-    await screen.findByText('Modules'); // page rendered
-    expect(screen.queryByText(/final interview/i)).not.toBeInTheDocument();
+    await screen.findByText('The path to the credential'); // page rendered
+    expect(screen.queryByText(/final qualification/i)).not.toBeInTheDocument();
   });
 });
