@@ -3,6 +3,7 @@ import { useParams, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  getAttempt,
   getAttemptItems,
   saveResponse,
   saveTextResponse,
@@ -61,6 +62,16 @@ export default function AttemptShell() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['attempt-runner', attemptId],
     queryFn: () => getAttemptItems(attemptId),
+    retry: false,
+  });
+
+  // Server-authoritative modality (knowledge vs interview) for the consequence
+  // label. Read from the owner-scoped attempt endpoint — NOT inferred from
+  // target_level, which is `mid_senior` for BOTH a Mid-Senior course assessment
+  // and the Mid-Senior Final Qualification and so cannot distinguish them.
+  const { data: attemptMeta } = useQuery({
+    queryKey: ['attempt', attemptId],
+    queryFn: () => getAttempt(attemptId),
     retry: false,
   });
 
@@ -216,9 +227,9 @@ export default function AttemptShell() {
     remaining <= 0;
   const locked = isExpired || submitting;
   const variant =
-    attempt.target_level === 'mid_senior'
-      ? 'course-assessment'
-      : 'final-qualification';
+    attemptMeta?.kind === 'interview'
+      ? 'final-qualification'
+      : 'course-assessment';
 
   const item = items[current];
   const valueFor = (it) => edits[it.id] ?? savedValueFor(it);

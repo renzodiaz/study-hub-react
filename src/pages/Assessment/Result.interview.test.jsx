@@ -3,8 +3,17 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@test/renderWithProviders';
 import AssessmentResult from './Result';
 
-vi.mock('@api/assessments', () => ({ getAttemptResult: vi.fn() }));
-import { getAttemptResult } from '@api/assessments';
+vi.mock('@api/assessments', () => ({
+  getAttemptResult: vi.fn(),
+  getAttempt: vi.fn(),
+}));
+import { getAttemptResult, getAttempt } from '@api/assessments';
+
+// Interview modality is server-authoritative via the owner-scoped attempt
+// endpoint (kind), never inferred from target_level.
+beforeEach(() =>
+  getAttempt.mockResolvedValue({ id: 'att_1', kind: 'interview' }),
+);
 
 const render = () =>
   renderWithProviders(() => <AssessmentResult attemptId="att_1" />, {
@@ -39,6 +48,26 @@ describe('interview result', () => {
       screen.getByText(/seniority credential is being issued/i),
     ).toBeInTheDocument();
     expect(container.innerHTML).not.toMatch(/model_decision/i);
+  });
+
+  it('treats a MID_SENIOR interview as a seniority credential (kind, not target_level)', async () => {
+    // The Frontend Mid-Senior qualification shares target_level "mid_senior"
+    // with course assessments; only server `kind` distinguishes them.
+    getAttempt.mockResolvedValue({ id: 'att_1', kind: 'interview' });
+    getAttemptResult.mockResolvedValue({
+      passed: true,
+      overall_score: 85.0,
+      target_level: 'mid_senior',
+      assessment_title: 'Final Frontend Mid-Senior Qualification',
+      dimensions: [],
+    });
+    render();
+    expect(await screen.findByText('Passed')).toBeInTheDocument();
+    expect(
+      screen.getByText(/seniority credential is being issued/i),
+    ).toBeInTheDocument();
+    // Must NOT mislabel it as a course/knowledge credential.
+    expect(screen.queryByText(/knowledge credential/i)).not.toBeInTheDocument();
   });
 
   it('renders a failed interview without any lower-level credit', async () => {

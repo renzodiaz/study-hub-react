@@ -5,6 +5,7 @@ import { renderWithProviders } from '@test/renderWithProviders';
 import AttemptShell from './AttemptShell';
 
 vi.mock('@api/assessments', () => ({
+  getAttempt: vi.fn(),
   getAttemptItems: vi.fn(),
   saveResponse: vi.fn(),
   saveTextResponse: vi.fn(),
@@ -14,11 +15,17 @@ vi.mock('@api/assessments', () => ({
   startAttempt: vi.fn(),
 }));
 import {
+  getAttempt,
   getAttemptItems,
   saveTextResponse,
   submitAttempt,
   getAttemptResult,
 } from '@api/assessments';
+
+// Interview modality (kind) is server-authoritative via the owner-scoped attempt.
+beforeEach(() =>
+  getAttempt.mockResolvedValue({ id: 'att_1', kind: 'interview' }),
+);
 
 const items = (responses = {}) => ({
   attempt: {
@@ -50,6 +57,14 @@ const render = () =>
 
 describe('interview runner (free_text)', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('labels the runner "Final Qualification" from server kind, never "Course assessment"', async () => {
+    getAttemptItems.mockResolvedValue(items());
+    render();
+    await screen.findByText('Design a rate limiter.');
+    expect(screen.getByText('Final Qualification')).toBeInTheDocument();
+    expect(screen.queryByText('Course assessment')).not.toBeInTheDocument();
+  });
 
   it('renders a textarea + character count for a free_text item', async () => {
     getAttemptItems.mockResolvedValue(items());
