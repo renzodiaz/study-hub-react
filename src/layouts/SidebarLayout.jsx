@@ -1,29 +1,9 @@
-import { useState } from 'react';
-import { DrawerProvider } from '@contexts/DrawerProvider';
-import { Outlet } from '@tanstack/react-router';
-import Drawer from './partials/Drawer';
-import Sidebar from './partials/Sidebar';
-import Header from './partials/Header';
+import AppShell from '@components/shell/AppShell';
 
-const SidebarLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  return (
-    <div>
-      <DrawerProvider>
-        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <div className="lg:pl-72">
-          <Header setSidebarOpen={setSidebarOpen} />
-          <main className="py-10">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <Outlet />
-            </div>
-          </main>
-        </div>
-        <Drawer />
-      </DrawerProvider>
-    </div>
-  );
-};
+// The authenticated learner layout is the approved AppShell (§3): primary
+// navigation, responsive shell states and the content region. It renders its
+// own <Outlet/>, so this stays a thin binding between the route tree and the
+// shell component.
+const SidebarLayout = () => <AppShell />;
 
 export default SidebarLayout;

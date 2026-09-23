@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, redirect } from '@tanstack/react-router';
 // Layouts
 import AuthLayout from '@layouts/AuthLayout';
 import SidebarLayout from '@layouts/SidebarLayout';
+import ChromelessLayout from '@layouts/ChromelessLayout';
 
 // Pages
 import Dashboard from '@pages/Dashboard/Home';
@@ -52,6 +53,20 @@ const authLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'auth-layout',
   component: AuthLayout,
+});
+
+// ─── Chromeless Layout Route (authenticated, no AppShell) ─────────────────────
+// Consequence-bearing attempts render without primary navigation (§3.3). Same
+// auth guard as the app shell, but no sidebar/rail/bottom-nav chrome.
+const chromelessLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'chromeless-layout',
+  component: ChromelessLayout,
+  beforeLoad: ({ context }) => {
+    if (!context.user) {
+      throw redirect({ to: '/login' });
+    }
+  },
 });
 
 // ─── Child Routes (inside layouts) ─────────────────────────────────────
@@ -178,8 +193,10 @@ const pilotsRoute = createRoute({
   component: Pilots,
 });
 
+// The active attempt runner is chromeless — no primary navigation while an
+// assessment or Final Qualification attempt is in progress (§3.3, §10.3.5).
 const assessmentAttemptRoute = createRoute({
-  getParentRoute: () => dashboardLayoutRoute,
+  getParentRoute: () => chromelessLayoutRoute,
   path: 'assessment-attempts/$attemptId',
   component: AssessmentAttemptShell,
 });
@@ -246,7 +263,6 @@ export const routeTree = rootRoute.addChildren([
     learnModuleRoute,
     lessonRoute,
     assessmentIntroRoute,
-    assessmentAttemptRoute,
     pilotsRoute,
     interviewIntroRoute,
     myLearningRoute,
@@ -263,6 +279,7 @@ export const routeTree = rootRoute.addChildren([
     studyHubEditorRoute,
   ]),
   authLayoutRoute.addChildren([loginRoute, registerRoute]),
+  chromelessLayoutRoute.addChildren([assessmentAttemptRoute]),
   verifyCredentialRoute,
   pricingRoute,
   billingSuccessRoute,
