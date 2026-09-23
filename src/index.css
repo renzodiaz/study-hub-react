@@ -1,7 +1,160 @@
 @import 'tailwindcss';
 
-/* Explicit app background so page-level headings never rely on the user-agent
-   default canvas (content cards remain white on this light surface). */
-body {
-  background-color: var(--color-gray-50, #f9fafb);
+/* ─────────────────────────────────────────────────────────────────────────
+   Design foundation — "Instrument"
+   Tokens are the contract; components never hard-code a hex, radius or font.
+   Values are the approved handoff values verbatim (§2). Token *names* are the
+   Tailwind-utility form of the handoff roles: the handoff's text-primary /
+   text-secondary / text-muted / text-disabled map to ink / ink-secondary /
+   ink-muted / ink-disabled so the generated utilities read cleanly
+   (text-ink, text-ink-muted) instead of text-text-primary.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Surfaces & structure (§2.1) */
+  --color-ground: #f6f5f2;
+  --color-surface: #ffffff;
+  --color-surface-raised: #fbfaf8;
+  --color-surface-sunken: #efede8;
+  --color-surface-code: #f5f4f1;
+  --color-line: #e4e2dd;
+  --color-line-strong: #d2cfc8;
+
+  /* Text (§2.2) — muted is the floor; nothing lighter carries text */
+  --color-ink: #14171a;
+  --color-ink-secondary: #39444c;
+  --color-ink-muted: #5f6b74;
+  --color-ink-disabled: #98a1a8;
+
+  /* Action — petrol (§2.3). The only action colour; also the focus ring. */
+  --color-primary: #0d4a54;
+  --color-primary-hover: #0a3b43;
+  --color-primary-deep: #06272d;
+  --color-primary-tint: #e4eef0;
+  --color-primary-tint-line: #b9d3d8;
+  --color-primary-wash: #f3f8f9;
+  --color-primary-line-soft: #c7dadd;
+
+  /* Proof — bronze (§2.4). Reserved for credentials & Final Qualification;
+     never a generic CTA. bronze-action is the credential button (7.8:1). */
+  --color-bronze: #8a5a2b;
+  --color-bronze-action: #6f4720;
+  --color-bronze-deep: #5b3a19;
+  --color-bronze-line: #c8965a;
+  --color-bronze-tint: #f4ebe0;
+  --color-bronze-tint-line: #e8d9c4;
+
+  /* Status (§2.5) — always paired with a word + icon, never colour alone */
+  --color-success: #17603f;
+  --color-success-tint: #e4f0ea;
+  --color-success-line: #a8cfbc;
+  --color-warning: #7a5208;
+  --color-warning-tint: #f7eedd;
+  --color-warning-line: #e8d3a8;
+  --color-danger: #9b2c2c;
+  --color-danger-tint: #f8e8e6;
+  --color-danger-line: #e8c4c0;
+  --color-info: #1f5a8a;
+  --color-info-tint: #e5eef5;
+  --color-info-line: #b9d0e2;
+  --color-neutral: #5f6b74;
+  --color-neutral-tint: #efede8;
+  --color-neutral-line: #d2cfc8;
+
+  /* Typography (§2.6) — three families, three jobs */
+  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: Literata, Georgia, serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Type scale (§2.6). Family/weight/tracking are applied by the component;
+     these tokens carry size + line-height. Ranges are pinned to one value. */
+  --text-display: 62px;
+  --text-display--line-height: 1.08;
+  --text-title: 30px;
+  --text-title--line-height: 1.1;
+  --text-title-app: 26px;
+  --text-title-app--line-height: 1.2;
+  --text-credential: 26px;
+  --text-credential--line-height: 1.16;
+  --text-section: 21px;
+  --text-section--line-height: 1.25;
+  --text-card: 17px;
+  --text-card--line-height: 1.25;
+  --text-panel: 14px;
+  --text-panel--line-height: 1.3;
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 1.65;
+  --text-prose: 17px;
+  --text-prose--line-height: 1.75;
+  --text-body: 14.5px;
+  --text-body--line-height: 1.6;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 1.55;
+  --text-caption: 12px;
+  --text-caption--line-height: 1.55;
+  --text-eyebrow: 11px;
+  --text-eyebrow--line-height: 1.2;
+  --text-table: 10.5px;
+  --text-table--line-height: 1.2;
+  --text-code: 12.5px;
+  --text-code--line-height: 1.7;
+
+  /* Radii (§2.8) */
+  --radius-chip: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-sheet: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation (§2.10) — two levels only; flat is the baseline (no shadow) */
+  --shadow-overlay:
+    0 1px 2px rgba(20, 23, 26, 0.05), 0 12px 32px rgba(20, 23, 26, 0.1);
+  --shadow-overlay-heavy:
+    0 1px 2px rgba(20, 23, 26, 0.05), 0 16px 40px rgba(20, 23, 26, 0.12);
+  --shadow-sheet: 0 -12px 32px rgba(20, 23, 26, 0.14);
+
+  /* Motion (§2.13) — colour/opacity only, 120–180ms */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* The spacing scale (§2.7: 4·8·12·16·24·32·48·64·80) and the ≤680/68ch prose
+   measure are Tailwind's default 4px-based numeric scale — no parallel spacing
+   tokens are introduced. Breakpoints (§2.12) are handled per surface in the
+   later shell/page milestones; only foundation-level tokens live here. */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* Explicit ground so headings never fall back to the UA canvas; content
+       cards remain white (surface) on this light ground. */
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* One focus ring everywhere, never removed (§2.11). :where() keeps zero
+     specificity so a component can restyle its box without ever dropping the
+     ring. Applies to real interactive elements and the skip link. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Reduced-motion foundation (§2.13, §5.5): every transition, animation and
+     smooth scroll collapses to an instant state change. The static state is
+     the baseline, not a degraded one. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
