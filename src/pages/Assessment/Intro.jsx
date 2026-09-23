@@ -1,18 +1,16 @@
 import { useParams, useNavigate, Link } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeftIcon,
-  ClockIcon,
-  AcademicCapIcon,
-  ArrowPathIcon,
-  LockClosedIcon,
-} from '@heroicons/react/20/solid';
+import { ArrowLeftIcon, ArrowPathIcon } from '@heroicons/react/20/solid';
 
 import {
   getCourseAssessment,
   startAttempt,
   startPilotAttempt,
 } from '@api/assessments';
+import Button from '@components/ui/Button';
+import Banner from '@components/ui/Banner';
+import ConsequenceHeader from '@components/assessment/ConsequenceHeader';
+import PreFlightPanel from '@components/assessment/PreFlightPanel';
 
 const TARGET_LEVEL_LABEL = {
   mid_senior: 'Mid / Senior',
@@ -26,9 +24,6 @@ const REASON_MESSAGE = {
     'An active paid subscription is required to take this credential assessment.',
   not_enrolled:
     'Enroll in a career track that includes this module to unlock the assessment.',
-  // Generic fallback — React never invents which course is the prerequisite. If
-  // the API supplies an unlock_requirement for this context, its name is used
-  // instead (see reasonMessage below).
   course_locked: 'Complete the prerequisite course to unlock this assessment.',
   attempts_exhausted: 'You have used all of your attempts for this assessment.',
   cooldown_active: 'A cooldown is active before you can try again.',
@@ -36,13 +31,6 @@ const REASON_MESSAGE = {
 
 const formatMinutes = (seconds) =>
   seconds ? `${Math.round(seconds / 60)} min` : '—';
-
-const Stat = ({ label, value }) => (
-  <div className="rounded-lg border border-gray-200 px-4 py-3">
-    <dt className="text-xs font-medium text-gray-500">{label}</dt>
-    <dd className="mt-1 text-lg font-semibold text-gray-900">{value}</dd>
-  </div>
-);
 
 export default function AssessmentIntro() {
   const { trackId, courseId } = useParams({ strict: false });
@@ -59,10 +47,8 @@ export default function AssessmentIntro() {
     queryFn: () => getCourseAssessment(courseId),
   });
 
-  // Pilot mode is server-declared (the learner holds an active pilot grant and
-  // the assessment has no published version). It uses the explicit pilot start
-  // endpoint — never a fallback from a failed normal start — and the client
-  // still sends no version id or checksum.
+  // Pilot mode is server-declared; it uses the explicit pilot start endpoint —
+  // never a fallback from a failed normal start — and sends no version/checksum.
   const isPilot = Boolean(assessment?.pilot);
 
   const start = useMutation({
@@ -80,18 +66,20 @@ export default function AssessmentIntro() {
   });
 
   if (isLoading) {
-    return <p className="p-6 text-sm text-gray-500">Loading assessment…</p>;
+    return (
+      <p aria-busy="true" className="p-6 text-body text-ink-secondary">
+        Loading assessment…
+      </p>
+    );
   }
   if (isError) {
     return (
-      <p className="p-6 text-sm text-red-600">
+      <p className="p-6 text-body text-ink-secondary">
         {error?.message ?? 'Failed to load assessment.'}
       </p>
     );
   }
 
-  // can_resume: a live attempt to return to (even if entitlement lapsed after
-  // starting). can_start: eligible to begin a NEW attempt. Distinct on purpose.
   const resumable = Boolean(
     assessment.can_resume && assessment.active_attempt_id,
   );
@@ -100,9 +88,6 @@ export default function AssessmentIntro() {
     ? new Date(assessment.next_eligible_at).toLocaleString()
     : null;
 
-  // Ineligibility copy. For a progression lock, prefer the API-provided
-  // prerequisite course name when present; otherwise a generic fallback. React
-  // never derives the prerequisite from course positions.
   const lockedName = assessment.unlock_requirement?.name;
   const reasonMessage =
     assessment.reason === 'course_locked' && lockedName
@@ -117,107 +102,88 @@ export default function AssessmentIntro() {
     });
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       {isPilot ? (
         <Link
           to="/pilots"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink"
         >
-          <ArrowLeftIcon className="size-4" /> Back to pilots
+          <ArrowLeftIcon aria-hidden="true" className="size-4" /> Back to pilots
         </Link>
       ) : (
         <Link
           to="/learn/$trackId/$courseId"
           params={{ trackId, courseId }}
-          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink"
         >
-          <ArrowLeftIcon className="size-4" /> Back to module
+          <ArrowLeftIcon aria-hidden="true" className="size-4" /> Back to course
         </Link>
       )}
 
-      {isPilot && (
-        <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          This is a <span className="font-semibold">pilot</span> assessment.
-          Completing it evaluates the assessment itself and does{' '}
-          <span className="font-semibold">not</span> issue a credential.
-        </div>
-      )}
+      <ConsequenceHeader
+        variant="course-assessment"
+        title={assessment.title}
+        meta={`Credential standard: ${TARGET_LEVEL_LABEL[assessment.target_level] ?? assessment.target_level}`}
+      />
 
-      <div className="flex items-center gap-3">
-        <AcademicCapIcon className="size-8 text-indigo-600" />
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            {assessment.title}
-          </h1>
-          <p className="text-sm text-gray-500">
-            Credential standard:{' '}
-            {TARGET_LEVEL_LABEL[assessment.target_level] ??
-              assessment.target_level}
-          </p>
-        </div>
-      </div>
+      {isPilot ? (
+        <Banner variant="info" title="This is a pilot assessment">
+          Completing it evaluates the assessment itself and does not issue a
+          credential.
+        </Banner>
+      ) : null}
 
       {assessment.available ? (
         <>
-          <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat
-              label="Time limit"
-              value={formatMinutes(assessment.time_limit_seconds)}
-            />
-            <Stat label="Attempts" value={assessment.max_attempts} />
-            <Stat label="Remaining" value={assessment.attempts_remaining} />
-            <Stat label="Version" value={`v${assessment.version_no}`} />
-          </dl>
+          <PreFlightPanel
+            stats={[
+              {
+                label: 'Time limit',
+                value: formatMinutes(assessment.time_limit_seconds),
+              },
+              { label: 'Attempts', value: assessment.max_attempts },
+              { label: 'Remaining', value: assessment.attempts_remaining },
+              { label: 'Version', value: `v${assessment.version_no}` },
+            ]}
+            note="Once you start, the timer runs on the server and cannot be paused. Leaving does not stop the clock."
+          />
 
-          {!canStart && assessment.reason && (
-            <div className="mt-6 flex items-start gap-2 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-              <LockClosedIcon className="mt-0.5 size-4 shrink-0" />
-              <span>
-                {reasonMessage}
-                {assessment.reason === 'cooldown_active' && nextEligible && (
-                  <> You can try again after {nextEligible}.</>
-                )}
-              </span>
-            </div>
-          )}
+          {!canStart && assessment.reason ? (
+            <Banner variant="warning" title="Not available yet">
+              {reasonMessage}
+              {assessment.reason === 'cooldown_active' && nextEligible ? (
+                <> You can try again after {nextEligible}.</>
+              ) : null}
+            </Banner>
+          ) : null}
 
-          <div className="mt-6">
+          <div>
             {resumable ? (
-              <button
-                type="button"
+              <Button
                 onClick={goToAttempt}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
+                iconStart={<ArrowPathIcon className="size-4" />}
               >
-                <ArrowPathIcon className="size-4" /> Resume attempt
-              </button>
+                Resume attempt
+              </Button>
             ) : (
-              <button
-                type="button"
-                disabled={!canStart || start.isPending}
+              <Button
                 onClick={() => start.mutate()}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!canStart}
+                busy={start.isPending}
+                busyLabel="Starting…"
               >
-                {start.isPending
-                  ? 'Starting…'
-                  : isPilot
-                    ? 'Start pilot assessment'
-                    : 'Start assessment'}
-              </button>
+                {isPilot ? 'Start pilot assessment' : 'Start assessment'}
+              </Button>
             )}
-            {start.isError && (
-              <p className="mt-3 text-sm text-red-600">
+            {start.isError ? (
+              <p className="mt-3 text-body-sm text-danger">
                 {REASON_MESSAGE[start.error?.code] ?? start.error?.message}
               </p>
-            )}
+            ) : null}
           </div>
-
-          <p className="mt-6 flex items-center gap-1 text-xs text-gray-400">
-            <ClockIcon className="size-3.5" />
-            Once started, the timer runs on the server and cannot be paused.
-          </p>
         </>
       ) : (
-        <p className="mt-6 text-sm text-gray-500">
+        <p className="text-body text-ink-secondary">
           {REASON_MESSAGE.assessment_unavailable}
         </p>
       )}

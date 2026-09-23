@@ -58,6 +58,13 @@ function AttemptStub() {
 }
 
 describe('AssessmentIntro', () => {
+  it('viewing the intro never starts/consumes an attempt', async () => {
+    renderIntro(baseMetadata({ can_start: true }));
+    await screen.findByRole('button', { name: /start assessment/i });
+    // An attempt is created only by the explicit Start action, not by viewing.
+    expect(startAttempt).not.toHaveBeenCalled();
+  });
+
   it('shows a Start action when the learner can start a new attempt', async () => {
     renderIntro(baseMetadata({ can_start: true, can_resume: false }));
 
