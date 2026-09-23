@@ -132,7 +132,12 @@ const AppShell = () => {
           tabIndex={-1}
           className="flex-1 focus:outline-none"
         >
-          <div className="mx-auto max-w-[1200px] px-4 py-8 pb-24 md:px-6 md:pb-8 lg:px-8">
+          {/* Content is left-aligned against the sidebar (not centred in the
+              remaining space): on wide screens centring dropped a large dead gap
+              between the fixed nav and the content — visible as nav | gap |
+              outline | content on the lesson view. Reading width stays capped at
+              max 1200 with the 32px desktop gutter (§ layout). */}
+          <div className="max-w-[1200px] px-4 py-8 pb-24 md:px-6 md:pb-8 lg:px-8">
             <Outlet />
           </div>
         </main>
