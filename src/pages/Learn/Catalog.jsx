@@ -1,43 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { ArrowRightIcon } from '@heroicons/react/20/solid';
 
-import { getTracks } from '@api/learn';
-import ContentHeading from '@layouts/partials/ContentHeading';
+import { getTracks, getEnrollments } from '@api/learn';
+import CareerCard from '@components/learn/CareerCard';
+import EmptyState from '@components/learn/EmptyState';
 
-const TrackCard = ({ track }) => (
-  <Link
-    to="/learn/$trackId"
-    params={{ trackId: String(track.id) }}
-    className="group col-span-1 flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+// Explore — published careers only. Publication is a server-authoritative rule:
+// getTracks() hits the public career_tracks endpoint, which returns published
+// careers. Preview-granted (unpublished) careers deliberately never appear here
+// — they live in My Learning. No client filtering weakens the server rule, and
+// no career count is hard-coded.
+
+const CatalogSkeleton = () => (
+  <ul
+    aria-busy="true"
+    className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
   >
-    <div className="flex items-center gap-x-4">
-      <div
-        className="flex size-12 shrink-0 items-center justify-center rounded-lg text-xl font-semibold text-white"
-        style={{ backgroundColor: track.color ?? '#6366f1' }}
-      >
-        {track.icon ?? '📚'}
-      </div>
-      <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600">
-        {track.name}
-      </h3>
-    </div>
-
-    <p className="mt-4 line-clamp-3 grow text-sm text-gray-500">
-      {track.description}
-    </p>
-
-    <div className="mt-6 flex items-center justify-between">
-      <span className="text-xs font-medium text-gray-500">
-        {track.courses_count ?? 0}{' '}
-        {track.courses_count === 1 ? 'module' : 'modules'}
-      </span>
-      <span className="inline-flex items-center gap-x-1 text-sm font-semibold text-indigo-600">
-        Explore
-        <ArrowRightIcon className="size-4 transition group-hover:translate-x-0.5" />
-      </span>
-    </div>
-  </Link>
+    {[0, 1, 2].map((i) => (
+      <li key={i} className="h-56 rounded-card border border-line bg-surface" />
+    ))}
+    <li className="sr-only">Loading careers…</li>
+  </ul>
 );
 
 const Catalog = () => {
@@ -46,29 +28,67 @@ const Catalog = () => {
     isLoading,
     isError,
     error,
-  } = useQuery({
-    queryKey: ['learn', 'tracks'],
-    queryFn: getTracks,
+  } = useQuery({ queryKey: ['learn', 'tracks'], queryFn: getTracks });
+
+  // Cross-reference the learner's enrollments purely to mark cards "Enrolled"
+  // (presentation only — not an authorization decision).
+  const { data: enrollments = [] } = useQuery({
+    queryKey: ['learn', 'enrollments'],
+    queryFn: getEnrollments,
   });
+  const enrolledIds = new Set(
+    enrollments.map((e) => e.career_track?.id).filter(Boolean),
+  );
 
   return (
-    <>
-      <ContentHeading title="Explore careers" />
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-title-app font-semibold text-ink">
+          Explore careers
+        </h1>
+        <p className="mt-2 max-w-prose text-body text-ink-secondary">
+          A career is a structured path to one verifiable credential. You work
+          through its courses in order, pass an assessment at the end of each,
+          and finish with a qualification.
+        </p>
+      </header>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading careers...</p>
+        <CatalogSkeleton />
       ) : isError ? (
-        <p className="text-sm text-red-600">{error.message}</p>
+        <p className="text-body text-ink-secondary">
+          We couldn&apos;t load careers just now. Please try again.
+          <span className="sr-only">{error?.message}</span>
+        </p>
       ) : tracks.length === 0 ? (
-        <p className="text-sm text-gray-500">No careers available yet.</p>
+        <EmptyState
+          title="No careers published yet"
+          description="Careers appear here once they are published. A career you have been given Preview access to shows in My Learning instead."
+        />
       ) : (
-        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {tracks.map((track) => (
-            <TrackCard key={track.id} track={track} />
-          ))}
-        </ul>
+        <>
+          <p className="text-body-sm text-ink-muted">
+            {tracks.length} {tracks.length === 1 ? 'career' : 'careers'}
+          </p>
+          <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {tracks.map((track) => (
+              <li key={track.id}>
+                <CareerCard
+                  track={track}
+                  enrolled={enrolledIds.has(track.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-    </>
+
+      <p className="border-t border-line pt-4 text-body-sm text-ink-muted">
+        Explore lists published careers only. A career you have been given
+        Preview access to appears in My Learning instead, because it is not
+        publicly released.
+      </p>
+    </div>
   );
 };
 
