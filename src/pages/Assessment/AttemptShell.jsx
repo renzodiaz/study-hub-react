@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from '@tanstack/react-router';
+import { useParams, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ClockIcon } from '@heroicons/react/20/solid';
 
 import {
   getAttemptItems,
@@ -10,6 +9,12 @@ import {
   submitAttempt,
 } from '@api/assessments';
 import useDisplayCountdown from '@hooks/useDisplayCountdown';
+import Button from '@components/ui/Button';
+import Dialog from '@components/ui/Dialog';
+import Banner from '@components/ui/Banner';
+import ConsequenceHeader from '@components/assessment/ConsequenceHeader';
+import ProgressStrip from '@components/assessment/ProgressStrip';
+import Timer from '@components/assessment/Timer';
 import AssessmentResult from './Result';
 import ChoiceQuestion from './ChoiceQuestion';
 import FreeTextQuestion from './FreeTextQuestion';
@@ -18,8 +23,7 @@ const DEBOUNCE_MS = 600;
 
 const isFreeText = (item) => item.item_type === 'free_text';
 
-// Generic value equality for the autosave queue: arrays (choice) vs strings
-// (free_text).
+// Generic value equality for the autosave queue: arrays (choice) vs strings.
 const valuesEqual = (a, b) => {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((v, i) => v === b[i]);
@@ -35,17 +39,10 @@ const savedValueFor = (item) =>
 const isAnswered = (item, value) =>
   isFreeText(item) ? value.trim().length > 0 : value.length > 0;
 
-// Persists one item's value with the correct endpoint for its type.
 const persistValue = (attemptId, item, value) =>
   isFreeText(item)
     ? saveTextResponse(attemptId, item.id, value)
     : saveResponse(attemptId, item.id, value);
-
-const formatClock = (total) => {
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-};
 
 const SAVE_LABEL = {
   saving: 'Saving…',
@@ -59,6 +56,7 @@ const isGradedResult = (data) => data && data.passed !== undefined;
 
 export default function AttemptShell() {
   const { attemptId } = useParams({ strict: false });
+  const router = useRouter();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['attempt-runner', attemptId],
@@ -72,19 +70,17 @@ export default function AttemptShell() {
   const [serverExpired, setServerExpired] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitBlock, setSubmitBlock] = useState(null);
   const [result, setResult] = useState(null);
 
   const queueRef = useRef({});
   const drainWaitersRef = useRef([]);
-  const debounceTimersRef = useRef({}); // { [id]: timeoutId } — free_text only
-  const pendingValueRef = useRef({}); // { [id]: latest debounced value }
+  const debounceTimersRef = useRef({});
+  const pendingValueRef = useRef({});
   const expiredRef = useRef(false);
-  const submittingRef = useRef(false); // hard guard against duplicate submits
-  // MUST set true on every mount (StrictMode mounts → unmounts → remounts) so a
-  // cleanup never leaves this false for the component's life (previously swallowed
-  // setResult after submit). Also clears any pending debounce timers on unmount.
+  const submittingRef = useRef(false);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -170,7 +166,6 @@ export default function AttemptShell() {
     }
   };
 
-  // Fire any pending debounced saves immediately (navigation / submit).
   const flushDebounces = () => {
     Object.keys(debounceTimersRef.current).forEach((id) => {
       clearTimeout(debounceTimersRef.current[id]);
@@ -183,11 +178,13 @@ export default function AttemptShell() {
   };
 
   if (isLoading) {
-    return <p className="p-6 text-sm text-gray-500">Loading questions…</p>;
+    return (
+      <p aria-busy="true" className="p-6 text-body text-ink-secondary">
+        Loading questions…
+      </p>
+    );
   }
 
-  // A submitted attempt (restore, or the items endpoint reporting it) shows the
-  // result/evaluating screen, never an editable runner.
   if (result || error?.code === 'attempt_submitted') {
     return (
       <AssessmentResult
@@ -201,7 +198,9 @@ export default function AttemptShell() {
     const expired = error?.code === 'attempt_expired';
     return (
       <div className="mx-auto max-w-2xl p-6">
-        <p className={`text-sm ${expired ? 'text-gray-600' : 'text-red-600'}`}>
+        <p
+          className={`text-body ${expired ? 'text-ink-secondary' : 'text-danger'}`}
+        >
           {expired
             ? 'This attempt has expired. You can no longer change your answers.'
             : (error?.message ?? 'Failed to load the assessment.')}
@@ -216,12 +215,15 @@ export default function AttemptShell() {
     attempt.state === 'expired' ||
     remaining <= 0;
   const locked = isExpired || submitting;
+  const variant =
+    attempt.target_level === 'mid_senior'
+      ? 'course-assessment'
+      : 'final-qualification';
 
   const item = items[current];
   const valueFor = (it) => edits[it.id] ?? savedValueFor(it);
-  const answeredCount = items.filter((it) =>
-    isAnswered(it, valueFor(it)),
-  ).length;
+  const answeredFlags = items.map((it) => isAnswered(it, valueFor(it)));
+  const answeredCount = answeredFlags.filter(Boolean).length;
   const unansweredCount = items.length - answeredCount;
 
   const onChangeValue = (it, value) => {
@@ -242,7 +244,7 @@ export default function AttemptShell() {
   };
 
   const goTo = (index) => {
-    flushDebounces(); // persist latest text before moving
+    flushDebounces();
     setCurrent(index);
   };
 
@@ -269,8 +271,6 @@ export default function AttemptShell() {
 
     try {
       const submitted = await submitAttempt(attemptId);
-      // Knowledge → graded result seeds the screen; interview → evaluating (the
-      // Result screen fetches/polls the authoritative outcome).
       if (mountedRef.current)
         setResult(isGradedResult(submitted) ? submitted : { pending: true });
     } catch (err) {
@@ -290,69 +290,40 @@ export default function AttemptShell() {
   const status = item ? saveStatus[item.id] : undefined;
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            {attempt.assessment_title}
-          </h1>
-          <p className="text-sm text-gray-500">
-            Attempt #{attempt.attempt_number} · version v{attempt.version_no}
-          </p>
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ConsequenceHeader
+          variant={variant}
+          title={attempt.assessment_title}
+          meta={`Attempt #${attempt.attempt_number} · version v${attempt.version_no}`}
+        />
+        <div className="flex shrink-0 items-center gap-3">
+          <Timer secondsRemaining={remaining} expired={isExpired} />
+          <Button variant="quiet" onClick={() => setExitOpen(true)}>
+            Exit
+          </Button>
         </div>
-        {isExpired ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-600">
-            Expired
-          </span>
-        ) : (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700"
-            aria-label="time remaining"
-          >
-            <ClockIcon className="size-4" />
-            {formatClock(remaining)} left
-          </span>
-        )}
       </div>
 
-      {isExpired && (
-        <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-          This attempt has expired. Your answers can no longer be changed.
-        </div>
-      )}
+      {isExpired ? (
+        <Banner variant="warning" title="This attempt has expired">
+          Your answers can no longer be changed.
+        </Banner>
+      ) : null}
 
-      <nav aria-label="Questions" className="mt-6 flex flex-wrap gap-2">
-        {items.map((it, index) => {
-          const answered = isAnswered(it, valueFor(it));
-          return (
-            <button
-              key={it.id}
-              type="button"
-              onClick={() => goTo(index)}
-              aria-current={index === current ? 'true' : undefined}
-              aria-label={`Question ${index + 1}${answered ? ', answered' : ''}`}
-              className={[
-                'size-9 rounded-md border text-sm font-medium',
-                index === current
-                  ? 'border-indigo-600 ring-2 ring-indigo-200'
-                  : 'border-gray-200',
-                answered
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700',
-              ].join(' ')}
-            >
-              {index + 1}
-            </button>
-          );
-        })}
-      </nav>
+      <ProgressStrip
+        count={items.length}
+        answeredFlags={answeredFlags}
+        current={current}
+        onSelect={goTo}
+      />
 
-      {item && (
-        <section className="mt-6">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+      {item ? (
+        <section>
+          <p className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
             Question {current + 1} of {items.length}
           </p>
-          <h2 className="mt-1 text-base font-semibold text-gray-900">
+          <h2 className="mt-1 text-section font-semibold text-ink">
             {item.prompt}
           </h2>
 
@@ -372,115 +343,136 @@ export default function AttemptShell() {
             />
           )}
 
-          <div className="mt-3 flex items-center gap-3 text-sm">
-            {status && (
+          <div className="mt-3 flex items-center gap-3 text-body-sm">
+            {status ? (
               <span
                 role="status"
                 className={
-                  status === 'error' ? 'text-red-600' : 'text-gray-500'
+                  status === 'error' ? 'text-danger' : 'text-ink-muted'
                 }
               >
                 {SAVE_LABEL[status]}
               </span>
-            )}
-            {status === 'error' && !locked && (
+            ) : null}
+            {status === 'error' && !locked ? (
               <button
                 type="button"
                 onClick={() => enqueueSave(item, valueFor(item))}
-                className="font-medium text-indigo-600 hover:text-indigo-500"
+                className="font-medium text-primary hover:text-primary-hover"
               >
                 Retry
               </button>
-            )}
+            ) : null}
           </div>
         </section>
-      )}
+      ) : null}
 
-      <div className="mt-8 flex items-center justify-between">
-        <button
-          type="button"
+      <div className="flex items-center justify-between border-t border-line pt-6">
+        <Button
+          variant="secondary"
           onClick={() => goTo(Math.max(0, current - 1))}
           disabled={current === 0}
-          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
         >
           Previous
-        </button>
+        </Button>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => goTo(Math.min(items.length - 1, current + 1))}
             disabled={current >= items.length - 1}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
           >
             Next
-          </button>
-          {!isExpired && (
-            <button
-              type="button"
+          </Button>
+          {!isExpired ? (
+            <Button
               onClick={() => {
                 flushDebounces();
                 setSubmitBlock(null);
                 setConfirmOpen(true);
               }}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
             >
               Submit assessment
-            </button>
-          )}
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {confirmOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Confirm submission"
-          className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4"
-        >
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-gray-900">
-              Submit this assessment?
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              You have answered <strong>{answeredCount}</strong> of{' '}
-              <strong>{items.length}</strong> questions
-              {unansweredCount > 0 && <> ({unansweredCount} unanswered)</>}.
-              Submission is final and cannot be undone.
-            </p>
-
-            {submitBlock === 'unsaved' && (
-              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                Some answers didn’t save. Close this dialog, resolve them, then
-                submit again.
-              </p>
-            )}
-            {submitBlock && submitBlock !== 'unsaved' && (
-              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                {submitBlock}
-              </p>
-            )}
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={submitting}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmSubmit}
-                disabled={submitting}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
-              >
-                {submitting ? 'Submitting…' : 'Confirm submission'}
-              </button>
-            </div>
+      <Dialog
+        open={confirmOpen}
+        onClose={() => {
+          if (!submitting) setConfirmOpen(false);
+        }}
+        variant="confirm"
+        title="Submit this assessment?"
+        actions={
+          <>
+            <Button
+              variant="quiet"
+              onClick={() => setConfirmOpen(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmSubmit}
+              busy={submitting}
+              busyLabel="Submitting…"
+            >
+              Confirm submission
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body text-ink-secondary">
+          You have answered <strong>{answeredCount}</strong> of{' '}
+          <strong>{items.length}</strong> questions
+          {unansweredCount > 0 ? <> ({unansweredCount} unanswered)</> : null}.
+          Submission is final and cannot be undone.
+        </p>
+        {submitBlock === 'unsaved' ? (
+          <div className="mt-3">
+            <Banner variant="danger" title="Some answers didn’t save">
+              Close this dialog, resolve them, then submit again.
+            </Banner>
           </div>
-        </div>
-      )}
+        ) : null}
+        {submitBlock && submitBlock !== 'unsaved' ? (
+          <div className="mt-3">
+            <Banner variant="danger">{submitBlock}</Banner>
+          </div>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={exitOpen}
+        onClose={() => setExitOpen(false)}
+        variant="informational"
+        title="Leave the assessment?"
+        actions={
+          <>
+            <Button variant="quiet" onClick={() => setExitOpen(false)}>
+              Keep going
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setExitOpen(false);
+                router.history.back();
+              }}
+            >
+              Leave
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body text-ink-secondary">
+          Your saved answers are kept and you can return to this attempt.{' '}
+          <span className="font-medium text-ink">
+            Leaving does not stop the clock
+          </span>{' '}
+          — the attempt window keeps running while you are away.
+        </p>
+      </Dialog>
     </div>
   );
 }

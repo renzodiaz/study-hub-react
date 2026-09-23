@@ -21,17 +21,16 @@ export default function FreeTextQuestion({ item, value, locked, onChange }) {
         placeholder="Type your answer…"
         aria-describedby={`${fieldId}-count`}
         className={[
-          'block w-full rounded-lg border p-3 text-sm text-gray-900 shadow-sm',
-          'focus:border-indigo-500 focus:ring-indigo-500',
-          over ? 'border-red-400' : 'border-gray-300',
-          locked ? 'cursor-not-allowed bg-gray-50 opacity-70' : '',
+          'block w-full rounded-control border bg-surface p-3 text-body text-ink',
+          over ? 'border-danger' : 'border-line',
+          locked ? 'cursor-not-allowed bg-surface-sunken opacity-70' : '',
         ].join(' ')}
       />
       <div
         id={`${fieldId}-count`}
         className={[
-          'mt-1 text-right text-xs',
-          over ? 'text-red-600' : 'text-gray-400',
+          'mt-1 text-right text-caption',
+          over ? 'text-danger' : 'text-ink-muted',
         ].join(' ')}
       >
         {maxLength != null ? `${count} / ${maxLength}` : `${count} characters`}

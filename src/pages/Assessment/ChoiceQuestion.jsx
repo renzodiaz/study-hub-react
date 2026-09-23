@@ -19,15 +19,19 @@ export default function ChoiceQuestion({ item, value, locked, onChange }) {
 
   return (
     <fieldset className="mt-4 space-y-2" disabled={locked}>
-      <legend className="sr-only">Answer options</legend>
+      <legend className="sr-only">
+        {isMulti ? 'Select all that apply' : 'Select one answer'}
+      </legend>
       {options.map((option) => {
         const checked = value.includes(option.id);
         return (
           <label
             key={option.id}
             className={[
-              'flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm',
-              checked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200',
+              'flex cursor-pointer items-center gap-3 rounded-control border px-4 py-3 text-body',
+              checked
+                ? 'border-primary bg-primary-tint'
+                : 'border-line hover:bg-primary-wash',
               locked ? 'cursor-not-allowed opacity-60' : '',
             ].join(' ')}
           >
@@ -38,9 +42,9 @@ export default function ChoiceQuestion({ item, value, locked, onChange }) {
               checked={checked}
               disabled={locked}
               onChange={() => toggle(option.id)}
-              className="size-4"
+              className="size-4 text-primary"
             />
-            <span className="text-gray-900">{option.label}</span>
+            <span className="text-ink">{option.label}</span>
           </label>
         );
       })}
