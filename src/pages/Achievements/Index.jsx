@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link as RouterLink } from '@tanstack/react-router';
 import {
-  CheckBadgeIcon,
   AcademicCapIcon,
+  CheckBadgeIcon,
   LinkIcon,
   ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/20/solid';
 
 import { getCertificates, getSeniorityBadges } from '@api/learn';
-import ContentHeading from '@layouts/partials/ContentHeading';
+import Card from '@components/ui/Card';
+import Button from '@components/ui/Button';
+import Chip from '@components/ui/Chip';
+import StatusPill from '@components/ui/StatusPill';
+import Banner from '@components/ui/Banner';
+import EmptyState from '@components/learn/EmptyState';
 
 const LEVEL_LABELS = {
   beginner: 'Beginner',
@@ -17,23 +23,25 @@ const LEVEL_LABELS = {
   senior: 'Senior',
   staff: 'Staff',
   principal: 'Principal',
-};
-
-const TARGET_LEVEL_LABELS = {
   mid_senior: 'Mid-Senior',
 };
 
+const label = (value) => LEVEL_LABELS[value] ?? value;
 const isKnowledge = (cert) => cert.credential_kind === 'knowledge';
 
+// The verification URL is built from the existing public route + the server's
+// opaque token. No new backend URL contract, and the token is never shown as a
+// human "credential number".
 const publicUrl = (token) => `${window.location.origin}/verify/${token}`;
 
+// LinkedIn's "Add to profile" deep link. The credential URL is the existing
+// verification link; no fabricated LinkedIn credential id.
 const linkedInUrl = (cert) => {
   const params = new URLSearchParams({
     startTask: 'CERTIFICATION_NAME',
     name: cert.course_title ?? 'Study Hub Certificate',
     organizationName: 'Study Hub',
     certUrl: publicUrl(cert.public_token),
-    certId: cert.public_token,
   });
   return `https://www.linkedin.com/profile/add?${params.toString()}`;
 };
@@ -43,235 +51,286 @@ const formatDate = (iso) =>
     ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
     : '';
 
-const CertificateCard = ({ certificate }) => {
-  const [copied, setCopied] = useState(false);
+// Verify action — opens the existing public verification route (unauthenticated
+// page, new tab). Not the token in raw form.
+const VerifyLink = ({ token }) => (
+  <a
+    href={publicUrl(token)}
+    target="_blank"
+    rel="noreferrer"
+    className="inline-flex h-9 items-center gap-1.5 rounded-control bg-primary px-3 text-body-sm font-semibold text-white hover:bg-primary-hover"
+  >
+    <ArrowTopRightOnSquareIcon aria-hidden="true" className="size-4" />
+    View verification
+  </a>
+);
 
-  const copyLink = async () => {
+const CopyLinkButton = ({ token }) => {
+  const [copied, setCopied] = useState(false);
+  const statusId = useId();
+
+  const copy = async () => {
     try {
-      await navigator.clipboard.writeText(publicUrl(certificate.public_token));
+      await navigator.clipboard.writeText(publicUrl(token));
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
     }
   };
 
   return (
-    <li className="flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-x-3">
-        <AcademicCapIcon className="size-8 text-indigo-600" />
+    <span className="inline-flex items-center gap-2">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={copy}
+        iconStart={<LinkIcon aria-hidden="true" className="size-4" />}
+        aria-describedby={statusId}
+      >
+        Copy link
+      </Button>
+      <span id={statusId} role="status" className="text-caption text-success">
+        {copied ? 'Link copied' : ''}
+      </span>
+    </span>
+  );
+};
+
+// Authoritative badge status → semantic StatusPill (icon + word, never colour
+// alone; bronze is proof emphasis and never stands in for "valid").
+const BADGE_STATUS = {
+  valid: { status: 'success', label: 'Valid' },
+  revalidation_required: {
+    status: 'warning',
+    label: 'Revalidation required',
+  },
+  revoked: { status: 'neutral', label: 'Revoked' },
+};
+
+const BadgeStatusPill = ({ status }) => {
+  const cfg = BADGE_STATUS[status];
+  if (!cfg) return null; // status omitted → make no claim
+  return <StatusPill status={cfg.status}>{cfg.label}</StatusPill>;
+};
+
+const BADGE_STATUS_NOTE = {
+  revalidation_required:
+    'This badge was issued, but one of the credentials it was built on now requires revalidation.',
+  revoked: 'This badge was issued and has since been revoked.',
+};
+
+// SeniorityBadge — the primary career credential. Bronze proof accent and a
+// document-like presentation give it more consequence than a Course Certificate,
+// without gamification or plan-tier prestige.
+const BadgeCard = ({ badge }) => {
+  const note = BADGE_STATUS_NOTE[badge.status];
+  return (
+    <Card
+      as="li"
+      variant="accented"
+      accent="bronze"
+      className="flex flex-col gap-4 p-6"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <CheckBadgeIcon
+            aria-hidden="true"
+            className="size-8 shrink-0 text-bronze"
+          />
+          <div className="min-w-0">
+            <p className="text-caption font-semibold uppercase tracking-wide text-bronze">
+              Seniority Badge
+            </p>
+            <h3 className="mt-0.5 break-words font-serif text-card font-semibold text-ink">
+              {label(badge.level)} · {badge.career_track_name}
+            </h3>
+            <p className="mt-1 text-body-sm text-ink-muted">
+              Earned {formatDate(badge.earned_at)}
+            </p>
+          </div>
+        </div>
+        <BadgeStatusPill status={badge.status} />
+      </div>
+
+      {note ? <p className="text-body-sm text-ink-secondary">{note}</p> : null}
+
+      <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-line pt-4">
+        <VerifyLink token={badge.public_token} />
+        <CopyLinkButton token={badge.public_token} />
+      </div>
+    </Card>
+  );
+};
+
+// Course Certificate — bounded evidence for one Course. Never implies overall
+// Mid-Senior seniority (that is the SeniorityBadge's claim).
+const CertificateCard = ({ certificate }) => (
+  <Card as="li" className="flex flex-col gap-4 p-6">
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <AcademicCapIcon
+          aria-hidden="true"
+          className="size-7 shrink-0 text-primary"
+        />
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold text-gray-900">
+          <h3 className="break-words text-card font-semibold text-ink">
             {certificate.course_title}
           </h3>
-          <p className="text-xs text-gray-500">
+          <p className="mt-1 text-body-sm text-ink-muted">
             Issued {formatDate(certificate.issued_at)}
           </p>
         </div>
       </div>
+      <StatusPill status={certificate.revoked ? 'neutral' : 'success'}>
+        {certificate.revoked ? 'Revoked' : 'Valid'}
+      </StatusPill>
+    </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {isKnowledge(certificate) ? (
-          <>
-            <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-              Knowledge credential
-            </span>
-            <span className="inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
-              {TARGET_LEVEL_LABELS[certificate.target_level] ??
-                certificate.target_level}{' '}
-              standard
-            </span>
-          </>
-        ) : (
-          <span className="inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
-            {LEVEL_LABELS[certificate.level] ?? certificate.level}
-          </span>
-        )}
-        {certificate.revoked && (
-          <span className="inline-flex w-fit items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-            Revoked
-          </span>
-        )}
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      {isKnowledge(certificate) ? (
+        <>
+          <Chip>Knowledge credential</Chip>
+          <Chip>{label(certificate.target_level)} standard</Chip>
+        </>
+      ) : (
+        <Chip>{label(certificate.level)}</Chip>
+      )}
+    </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <a
-          href={publicUrl(certificate.public_token)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
-        >
-          <ArrowTopRightOnSquareIcon className="size-4" />
-          Verify
-        </a>
-        <button
-          type="button"
-          onClick={copyLink}
-          className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-        >
-          <LinkIcon className="size-4" />
-          {copied ? 'Copied!' : 'Copy link'}
-        </button>
-        <a
-          href={linkedInUrl(certificate)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-x-1.5 rounded-md bg-[#0a66c2] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
-        >
-          Add to LinkedIn
-        </a>
-      </div>
-    </li>
-  );
-};
+    <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-line pt-4">
+      <VerifyLink token={certificate.public_token} />
+      <CopyLinkButton token={certificate.public_token} />
+      <a
+        href={linkedInUrl(certificate)}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex h-9 items-center gap-1.5 rounded-control border border-line-strong bg-surface px-3 text-body-sm font-semibold text-ink hover:bg-primary-wash"
+      >
+        Add to LinkedIn
+      </a>
+    </div>
+  </Card>
+);
 
-// Text-first status (never color alone). Server-authoritative; no client rule.
-const BadgeStatus = ({ status }) => {
-  if (status === 'revoked') {
-    return (
-      <p className="mt-3 rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
-        <span className="font-semibold">Revoked</span> — this badge has been
-        explicitly revoked.
-      </p>
-    );
-  }
-  if (status === 'revalidation_required') {
-    return (
-      <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-        <span className="font-semibold">Revalidation required</span> — one of
-        the credentials used when this badge was issued now requires
-        revalidation.
-      </p>
-    );
-  }
-  if (status === 'valid') {
-    return (
-      <p className="mt-3 text-xs font-medium text-emerald-700">Status: Valid</p>
-    );
-  }
-  return null; // status omitted (older payload) — no claim made
-};
-
-const BadgeCard = ({ badge }) => {
-  const [copied, setCopied] = useState(false);
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(publicUrl(badge.public_token));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  };
+// One section (Certificates / Seniority Badges). Loading, request failure and a
+// successful-but-empty result are three DISTINCT states — a failed query never
+// masquerades as "none yet".
+const CredentialSection = ({
+  heading,
+  query,
+  emptyText,
+  errorText,
+  gridClassName,
+  renderItem,
+}) => {
+  const { data = [], isLoading, isError, refetch, isFetching } = query;
 
   return (
-    <li className="flex flex-col rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-x-4">
-        <div
-          className="flex size-12 shrink-0 items-center justify-center rounded-lg text-xl font-semibold text-white"
-          style={{ backgroundColor: badge.career_track_color ?? '#6366f1' }}
-        >
-          {badge.career_track_icon ?? '🏅'}
-        </div>
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-gray-900">
-            {LEVEL_LABELS[badge.level] ?? badge.level} ·{' '}
-            {badge.career_track_name}
-          </h3>
-          <p className="text-xs text-gray-500">
-            Earned {formatDate(badge.earned_at)}
-          </p>
-        </div>
-      </div>
-
-      {/* Authoritative status from the server (never computed client-side). */}
-      <BadgeStatus status={badge.status} />
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <a
-          href={publicUrl(badge.public_token)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-x-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
-        >
-          <ArrowTopRightOnSquareIcon className="size-4" />
-          Verify
-        </a>
-        <button
-          type="button"
-          onClick={copyLink}
-          className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-        >
-          <LinkIcon className="size-4" />
-          {copied ? 'Copied!' : 'Copy link'}
-        </button>
-      </div>
-    </li>
-  );
-};
-
-const Achievements = () => {
-  const { data: certificates = [], isLoading: certsLoading } = useQuery({
-    queryKey: ['learn', 'certificates'],
-    queryFn: getCertificates,
-  });
-  const { data: badges = [], isLoading: badgesLoading } = useQuery({
-    queryKey: ['learn', 'badges'],
-    queryFn: getSeniorityBadges,
-  });
-
-  const isLoading = certsLoading || badgesLoading;
-  const isEmpty =
-    !isLoading && certificates.length === 0 && badges.length === 0;
-
-  return (
-    <div className="space-y-10">
-      <ContentHeading title="Achievements" />
+    <section className="space-y-4">
+      <h2 className="text-caption font-semibold uppercase tracking-wide text-ink-muted">
+        {heading}
+      </h2>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading your achievements...</p>
-      ) : isEmpty ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-10 text-center">
-          <CheckBadgeIcon className="mx-auto size-8 text-gray-400" />
-          <p className="mt-3 text-sm text-gray-500">
-            No credentials yet — complete a module exam to earn your first one.
-          </p>
-        </div>
+        <p aria-busy="true" className="text-body-sm text-ink-muted">
+          Loading…
+        </p>
+      ) : isError ? (
+        <Banner
+          variant="danger"
+          title={errorText}
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => refetch()}
+              busy={isFetching}
+              busyLabel="Retrying…"
+            >
+              Try again
+            </Button>
+          }
+        >
+          Something went wrong loading this section. Your credentials are safe.
+        </Banner>
+      ) : data.length === 0 ? (
+        <p className="text-body-sm text-ink-muted">{emptyText}</p>
       ) : (
-        <>
-          <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Certificates
-            </h2>
-            {certificates.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">No certificates yet.</p>
-            ) : (
-              <ul className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {certificates.map((c) => (
-                  <CertificateCard key={c.id} certificate={c} />
-                ))}
-              </ul>
-            )}
-          </section>
+        <ul className={gridClassName}>{data.map(renderItem)}</ul>
+      )}
+    </section>
+  );
+};
 
-          <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Seniority badges
-            </h2>
-            {badges.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">No badges yet.</p>
-            ) : (
-              <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {badges.map((b) => (
-                  <BadgeCard key={b.id} badge={b} />
-                ))}
-              </ul>
-            )}
-          </section>
-        </>
+const Credentials = () => {
+  const certificatesQuery = useQuery({
+    queryKey: ['learn', 'certificates'],
+    queryFn: getCertificates,
+    retry: false,
+  });
+  const badgesQuery = useQuery({
+    queryKey: ['learn', 'badges'],
+    queryFn: getSeniorityBadges,
+    retry: false,
+  });
+
+  // Distinguish "still loading" from "loaded and genuinely empty" from "failed".
+  // The empty state only shows when BOTH queries succeeded with no rows.
+  const bothLoaded = certificatesQuery.isSuccess && badgesQuery.isSuccess;
+  const isEmpty =
+    bothLoaded &&
+    certificatesQuery.data.length === 0 &&
+    badgesQuery.data.length === 0;
+
+  return (
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-title-app font-semibold text-ink">Credentials</h1>
+        <p className="mt-2 max-w-prose text-body text-ink-secondary">
+          Your verifiable proof of what you have learned and demonstrated. A
+          Course Certificate covers one course; a Seniority Badge is the
+          career-level credential earned by completing every course and passing
+          the Final Qualification.
+        </p>
+      </header>
+
+      {isEmpty ? (
+        <EmptyState
+          icon={CheckBadgeIcon}
+          title="No credentials yet"
+          description="Learn, practise, and prove what you know — pass a course assessment to earn your first Course Certificate, then the Final Qualification for your Seniority Badge."
+          action={
+            <RouterLink
+              to="/learn"
+              className="inline-flex h-10 items-center rounded-control bg-primary px-4 text-body font-semibold text-white hover:bg-primary-hover"
+            >
+              Explore careers
+            </RouterLink>
+          }
+        />
+      ) : (
+        <div className="space-y-10">
+          <CredentialSection
+            heading="Seniority Badges"
+            query={badgesQuery}
+            emptyText="No seniority badges yet."
+            errorText="Couldn't load your seniority badges"
+            gridClassName="grid grid-cols-1 gap-6 lg:grid-cols-2"
+            renderItem={(b) => <BadgeCard key={b.id} badge={b} />}
+          />
+          <CredentialSection
+            heading="Course Certificates"
+            query={certificatesQuery}
+            emptyText="No course certificates yet."
+            errorText="Couldn't load your course certificates"
+            gridClassName="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            renderItem={(c) => <CertificateCard key={c.id} certificate={c} />}
+          />
+        </div>
       )}
     </div>
   );
 };
 
-export default Achievements;
+export default Credentials;

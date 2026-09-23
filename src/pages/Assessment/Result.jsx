@@ -11,6 +11,18 @@ import ResultSummary from '@components/assessment/ResultSummary';
 
 const isEvaluating = (data) => data?.code === 'evaluation_pending';
 
+// The authoritative credential issuance state (CRED-BE-3). Credential messaging
+// is driven by this — never by `passed`/kind. While issuance is genuinely
+// pending the result is refreshed (bounded, alongside evaluation polling); it
+// stops on issued / unavailable / not_applicable.
+const isCredentialPending = (data) => data?.credential?.state === 'pending';
+const isRefreshable = (data) => isEvaluating(data) || isCredentialPending(data);
+
+const CREDENTIAL_NOUN = {
+  seniority_badge: 'seniority credential',
+  course_certificate: 'course certificate',
+};
+
 const TARGET_LEVEL_LABEL = {
   mid_senior: 'Mid / Senior',
   junior: 'Junior',
@@ -20,12 +32,64 @@ const TARGET_LEVEL_LABEL = {
   principal: 'Principal',
 };
 
+// Learner-safe credential notice, driven entirely by the server's authoritative
+// credential.{state,status}. Never asserts issuance from a passed flag, and
+// never leaks an internal reason for the unavailable state.
+function CredentialNotice({ credential }) {
+  const state = credential?.state;
+  if (!state || state === 'not_applicable') return null;
+
+  const noun = CREDENTIAL_NOUN[credential.kind] ?? 'credential';
+
+  if (state === 'pending') {
+    return (
+      <Banner variant="success" title="Your credential is being issued">
+        Your {noun} is being issued and will appear in your Credentials shortly.
+      </Banner>
+    );
+  }
+
+  if (state === 'unavailable') {
+    return (
+      <Banner variant="info" title="Credential not available yet">
+        You passed, but your {noun} isn’t available yet. It will appear in your
+        Credentials once it’s ready.
+      </Banner>
+    );
+  }
+
+  // issued — interpret the live status; the qualification verdict is unchanged.
+  if (credential.status === 'revoked') {
+    return (
+      <Banner variant="info" title="Credential revoked">
+        Your {noun} was issued and has since been revoked.
+      </Banner>
+    );
+  }
+  if (credential.status === 'revalidation_required') {
+    return (
+      <Banner
+        variant="warning"
+        title="Credential issued — revalidation required"
+      >
+        Your {noun} was issued; one of the credentials it relies on now requires
+        revalidation.
+      </Banner>
+    );
+  }
+  return (
+    <Banner variant="success" title="Credential issued">
+      Your {noun} has been issued — you can view it in your Credentials.
+    </Banner>
+  );
+}
+
 // Learner-safe result. While the backend reports evaluation_pending (202), shows
 // an evaluating state and polls (bounded); then renders the authoritative
 // pass/fail. The verdict and score shown are always the server's.
 export default function AssessmentResult({ attemptId, initialData }) {
   const { intervalFn, stopped, reset } = useBoundedPoll({
-    isPending: isEvaluating,
+    isPending: isRefreshable,
   });
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -120,8 +184,9 @@ export default function AssessmentResult({ attemptId, initialData }) {
         dimensions={data.dimensions}
       />
 
-      {/* A pilot attempt never issues a credential — say so explicitly and never
-          show credential-issued messaging, regardless of pass/fail. */}
+      {/* A pilot attempt never issues a credential — say so explicitly. The
+          server also reports credential.state "not_applicable" for pilots, so no
+          issuance notice renders regardless. */}
       {data.pilot ? (
         <div className="mt-6">
           <Banner variant="info" title="This was a pilot assessment">
@@ -130,22 +195,15 @@ export default function AssessmentResult({ attemptId, initialData }) {
           </Banner>
         </div>
       ) : null}
-      {!data.pilot && passed && interview ? (
+
+      {/* Credential messaging is authoritative (credential.state/status), never
+          inferred from passed/kind. */}
+      {!data.pilot ? (
         <div className="mt-6">
-          <Banner variant="success" title="Interview passed">
-            Your seniority credential is being issued and will appear in your
-            credentials shortly.
-          </Banner>
+          <CredentialNotice credential={data.credential} />
         </div>
       ) : null}
-      {!data.pilot && passed && !interview ? (
-        <div className="mt-6">
-          <Banner variant="success" title="Course assessment passed">
-            Your knowledge credential is being issued and will appear in your
-            credentials shortly.
-          </Banner>
-        </div>
-      ) : null}
+
       {!passed && interview ? (
         <div className="mt-6">
           <Banner variant="info">

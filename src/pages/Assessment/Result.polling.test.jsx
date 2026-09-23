@@ -72,4 +72,30 @@ describe('evaluating UI + bounded-poll integration', () => {
     render();
     expect(await screen.findByText('Passed')).toBeInTheDocument();
   });
+
+  // The bounded-poll predicate: credential issuance is refreshed only while it can
+  // legitimately transition, and stops on every terminal state (the hook's timing,
+  // bound, and unmount mechanics are covered in useBoundedPoll.test.js).
+  it('refreshes while credential is pending and stops on every terminal state', async () => {
+    useBoundedPoll.mockReturnValue({
+      intervalFn: () => false,
+      stopped: false,
+      reset: vi.fn(),
+    });
+    getAttemptResult.mockResolvedValue({ code: 'evaluation_pending' });
+    render();
+    await screen.findByText(/being evaluated/i);
+
+    const { isPending } = useBoundedPoll.mock.calls[0][0];
+    // evaluation still pending → refresh
+    expect(isPending({ code: 'evaluation_pending' })).toBe(true);
+    // credential pending → refresh
+    expect(isPending({ credential: { state: 'pending' } })).toBe(true);
+    // terminal credential states → stop
+    expect(isPending({ credential: { state: 'issued' } })).toBe(false);
+    expect(isPending({ credential: { state: 'unavailable' } })).toBe(false);
+    expect(isPending({ credential: { state: 'not_applicable' } })).toBe(false);
+    // a graded result with no credential projection → stop
+    expect(isPending({ passed: true })).toBe(false);
+  });
 });
