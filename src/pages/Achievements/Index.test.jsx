@@ -112,6 +112,52 @@ describe('Achievements — knowledge credentials', () => {
   });
 });
 
+const seniorityBadge = (extra = {}) => ({
+  id: 'b1',
+  level: 'mid_senior',
+  career_track_name: 'Frontend Mid-Senior',
+  earned_at: '2026-09-20T00:00:00Z',
+  public_token: 'tok_b',
+  status: 'valid',
+  ...extra,
+});
+
+describe('Credentials — seniority badge competency standard', () => {
+  it('renders the standard name and version from the API (never fabricated)', async () => {
+    getCertificates.mockResolvedValue([]);
+    getSeniorityBadges.mockResolvedValue([
+      seniorityBadge({
+        competency_standard: {
+          name: 'Frontend Mid-Senior Competency Standard',
+          version: '1.0',
+        },
+      }),
+    ]);
+    renderAchievements();
+
+    expect(await screen.findByText('Competency standard')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Frontend Mid-Senior Competency Standard · v1\.0/),
+    ).toBeInTheDocument();
+  });
+
+  it('omits the standard cleanly when absent (no guessed fallback)', async () => {
+    getCertificates.mockResolvedValue([]);
+    getSeniorityBadges.mockResolvedValue([
+      seniorityBadge({ competency_standard: null }),
+    ]);
+    renderAchievements();
+
+    // Badge still renders (title present) but no standard block / fabricated value.
+    expect(
+      await screen.findByText(/Mid-Senior · Frontend Mid-Senior/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Competency standard')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unknown/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/· v/)).not.toBeInTheDocument();
+  });
+});
+
 describe('Credentials — loading / empty / error states', () => {
   it('shows a loading state, not the empty state, while queries are pending', async () => {
     getCertificates.mockReturnValue(new Promise(() => {})); // never resolves
