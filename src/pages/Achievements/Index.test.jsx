@@ -44,7 +44,7 @@ describe('Achievements — knowledge credentials', () => {
     expect(screen.getByText('Knowledge credential')).toBeInTheDocument();
     expect(screen.getByText('Mid-Senior standard')).toBeInTheDocument();
     // Verify/share link points at the public token.
-    const verify = screen.getByRole('link', { name: /verify/i });
+    const verify = screen.getByRole('link', { name: /view verification/i });
     expect(verify).toHaveAttribute(
       'href',
       expect.stringContaining('/verify/tok_k'),
@@ -79,7 +79,7 @@ describe('Achievements — knowledge credentials', () => {
     expect(screen.getAllByText('Knowledge credential')).toHaveLength(2);
     expect(screen.getByText('Revoked')).toBeInTheDocument();
     // The valid credential's verify link is present.
-    const links = screen.getAllByRole('link', { name: /verify/i });
+    const links = screen.getAllByRole('link', { name: /view verification/i });
     expect(
       links.some((a) => a.getAttribute('href').includes('/verify/tok_new')),
     ).toBe(true);
@@ -97,5 +97,65 @@ describe('Achievements — knowledge credentials', () => {
     expect(
       screen.queryByText(/Full Seniority Verified/i),
     ).not.toBeInTheDocument();
+  });
+
+  it('does not expose the raw token or internal metadata as credential fields', async () => {
+    getCertificates.mockResolvedValue([knowledgeCert]);
+    getSeniorityBadges.mockResolvedValue([]);
+    const { container } = renderAchievements();
+    await screen.findByText('React Fundamentals');
+    // The token is only used inside the verification href, never shown as text.
+    expect(screen.queryByText('tok_k')).not.toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(
+      /evaluator_version|provider|fingerprint|Credential ID|Certificate number/i,
+    );
+  });
+});
+
+describe('Credentials — loading / empty / error states', () => {
+  it('shows a loading state, not the empty state, while queries are pending', async () => {
+    getCertificates.mockReturnValue(new Promise(() => {})); // never resolves
+    getSeniorityBadges.mockReturnValue(new Promise(() => {}));
+    renderAchievements();
+
+    expect(await screen.findAllByText('Loading…')).not.toHaveLength(0);
+    expect(screen.queryByText(/No credentials yet/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a deliberate empty state only when BOTH queries succeed with no rows', async () => {
+    getCertificates.mockResolvedValue([]);
+    getSeniorityBadges.mockResolvedValue([]);
+    renderAchievements();
+
+    expect(await screen.findByText(/No credentials yet/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /explore careers/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error (never "no credentials") when a query fails', async () => {
+    getCertificates.mockRejectedValue(new Error('boom'));
+    getSeniorityBadges.mockResolvedValue([]);
+    renderAchievements();
+
+    expect(
+      await screen.findByText(/Couldn't load your course certificates/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No credentials yet/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /try again/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('handles partial failure truthfully (one section errors, the other renders)', async () => {
+    getCertificates.mockResolvedValue([knowledgeCert]);
+    getSeniorityBadges.mockRejectedValue(new Error('boom'));
+    renderAchievements();
+
+    expect(await screen.findByText('React Fundamentals')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Couldn't load your seniority badges/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No credentials yet/i)).not.toBeInTheDocument();
   });
 });

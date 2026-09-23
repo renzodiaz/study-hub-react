@@ -45,8 +45,16 @@ describe('AssessmentResult — pilot safety', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('a normal passing knowledge result still shows credential-issued copy', async () => {
-    getAttemptResult.mockResolvedValue({ ...passedPilotResult, pilot: false });
+  it('a normal passing knowledge result shows credential copy from credential.state', async () => {
+    getAttemptResult.mockResolvedValue({
+      ...passedPilotResult,
+      pilot: false,
+      credential: {
+        kind: 'course_certificate',
+        state: 'pending',
+        status: null,
+      },
+    });
     render();
     expect(
       await screen.findByText(/credential is being issued/i),

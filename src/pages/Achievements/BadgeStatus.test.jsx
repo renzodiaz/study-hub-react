@@ -24,20 +24,17 @@ describe('learner seniority badge status (server-authoritative)', () => {
   it('shows a Valid status', async () => {
     getSeniorityBadges.mockResolvedValue([badge('valid')]);
     renderWithProviders(Achievements, { path: '/' });
-    expect(await screen.findByText('Status: Valid')).toBeInTheDocument();
+    expect(await screen.findByText('Valid')).toBeInTheDocument();
   });
 
-  it('shows Revalidation required with clear wording (not "revoked")', async () => {
+  it('shows Revalidation required distinctly (never collapsed into "revoked")', async () => {
     getSeniorityBadges.mockResolvedValue([badge('revalidation_required')]);
     renderWithProviders(Achievements, { path: '/' });
     expect(
       await screen.findByText('Revalidation required'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /one of the credentials used when this badge was issued/i,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/now requires revalidation/i)).toBeInTheDocument();
+    // Distinct from revoked — the word must not appear for this state.
     expect(screen.queryByText(/revoked/i)).not.toBeInTheDocument();
   });
 
@@ -45,7 +42,7 @@ describe('learner seniority badge status (server-authoritative)', () => {
     getSeniorityBadges.mockResolvedValue([badge('revoked')]);
     renderWithProviders(Achievements, { path: '/' });
     expect(await screen.findByText('Revoked')).toBeInTheDocument();
-    expect(screen.getByText(/explicitly revoked/i)).toBeInTheDocument();
+    expect(screen.getByText(/has since been revoked/i)).toBeInTheDocument();
   });
 
   it('renders a verify link for the badge and does not compute status client-side', async () => {
@@ -54,7 +51,7 @@ describe('learner seniority badge status (server-authoritative)', () => {
     getSeniorityBadges.mockResolvedValue([badge('revalidation_required')]);
     renderWithProviders(Achievements, { path: '/' });
     expect(
-      await screen.findByRole('link', { name: /verify/i }),
+      await screen.findByRole('link', { name: /view verification/i }),
     ).toBeInTheDocument();
   });
 });
