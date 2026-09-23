@@ -123,6 +123,17 @@ describe('AppShell — primary navigation', () => {
     expect(skip).toHaveAttribute('href', '#main-content');
     expect(document.getElementById('main-content')).toBeInTheDocument();
   });
+
+  // Regression: the content region is left-aligned against the sidebar (not
+  // centred in the remaining space), so wide screens don't show a dead gap
+  // between the fixed nav and the content. Reading width stays capped at 1200.
+  it('left-aligns the content region against the sidebar at a capped reading width', async () => {
+    renderShellAt('/');
+    await awaitShell();
+    const wrapper = document.getElementById('main-content').firstElementChild;
+    expect(wrapper).toHaveClass('max-w-[1200px]');
+    expect(wrapper).not.toHaveClass('mx-auto');
+  });
 });
 
 describe('AppShell — collapse preference', () => {
