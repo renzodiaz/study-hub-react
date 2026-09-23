@@ -3,149 +3,116 @@ import { Link } from '@tanstack/react-router';
 import { ArrowRightIcon, BookOpenIcon } from '@heroicons/react/20/solid';
 
 import { getEnrollments } from '@api/learn';
-import { useAuth } from '@hooks/useAuth';
+import StatusPill from '@components/ui/StatusPill';
+import ContinueCard from '@components/learn/ContinueCard';
+import EmptyState from '@components/learn/EmptyState';
 
-const StatTile = ({ label, value }) => (
-  <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-    <dt className="text-sm font-medium text-gray-500">{label}</dt>
-    <dd className="mt-1 text-3xl font-semibold tracking-tight text-gray-900">
-      {value}
-    </dd>
-  </div>
-);
+// Home — the learner's concise continuation/orientation surface (§6). It is
+// deliberately calm: current career, one clear next action, current progress.
+// It is not an analytics dashboard, feed or gamified screen.
+//
+// Attention band (§7): the design shows an at-most-one attention item ranked
+// access → money → opportunity. None of those states is derivable from the data
+// the frontend currently holds (no billing/security/opportunity signal is
+// exposed to Home), so no band is rendered. The page works without it, and no
+// marketing filler occupies the space. Wiring it awaits the relevant server
+// contracts.
 
-const ContinueLearning = ({ enrollment }) => {
-  const track = enrollment.career_track;
-  const { percent = 0, completed = 0, total = 0 } = enrollment.progress ?? {};
-
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-        Continue learning
-      </h2>
-      <div className="mt-4 flex items-center gap-x-4">
-        <div
-          className="flex size-12 shrink-0 items-center justify-center rounded-lg text-xl font-semibold text-white"
-          style={{ backgroundColor: track.color ?? '#6366f1' }}
-        >
-          {track.icon ?? '📚'}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-gray-900">
-            {track.name}
-          </h3>
-          <div className="mt-2 flex items-center gap-x-3">
-            <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-indigo-600"
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-xs font-medium text-gray-500">
-              {completed}/{total}
-            </span>
-          </div>
-        </div>
-        <Link
-          to="/my-learning/$trackId"
-          params={{ trackId: String(track.id) }}
-          className="inline-flex shrink-0 items-center gap-x-1.5 rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        >
-          Resume
-          <ArrowRightIcon className="size-4" />
-        </Link>
-      </div>
-    </div>
-  );
-};
-
-const EmptyState = () => (
-  <div className="rounded-lg border border-dashed border-gray-300 p-10 text-center">
-    <BookOpenIcon className="mx-auto size-8 text-gray-400" />
-    <p className="mt-3 text-sm text-gray-500">
-      You haven&apos;t started learning yet.
-    </p>
-    <Link
-      to="/learn"
-      className="mt-4 inline-flex items-center gap-x-1.5 rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-    >
-      Explore careers
-      <ArrowRightIcon className="size-4" />
-    </Link>
+const HomeSkeleton = () => (
+  <div aria-busy="true" className="space-y-6">
+    <div className="h-8 w-64 rounded-chip bg-surface-sunken" />
+    <div className="h-40 rounded-card border border-line bg-surface" />
+    <span className="sr-only">Loading your home…</span>
   </div>
 );
 
 const Home = () => {
-  const { user } = useAuth();
-  const { data: enrollments = [], isLoading } = useQuery({
+  const {
+    data: enrollments = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['learn', 'enrollments'],
     queryFn: getEnrollments,
   });
 
-  const totalCompleted = enrollments.reduce(
-    (sum, e) => sum + (e.progress?.completed ?? 0),
-    0,
-  );
-  const totalLessons = enrollments.reduce(
-    (sum, e) => sum + (e.progress?.total ?? 0),
-    0,
-  );
-  const overallPercent =
-    totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0;
+  if (isLoading) return <HomeSkeleton />;
 
-  // Pick the enrollment closest to completion but not yet finished.
-  const resumable = enrollments
+  if (isError) {
+    return (
+      <div>
+        <h1 className="text-title-app font-semibold text-ink">Home</h1>
+        <p className="mt-4 text-body text-ink-secondary">
+          We couldn&apos;t load your learning just now. Please try again.
+        </p>
+        <p className="sr-only">{error?.message}</p>
+      </div>
+    );
+  }
+
+  if (enrollments.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-title-app font-semibold text-ink">Home</h1>
+        <EmptyState
+          icon={BookOpenIcon}
+          title="You're not on a career yet"
+          description="A career gives you an ordered path of courses and one credential at the end. Explore the careers you can take."
+          action={
+            <Link
+              to="/learn"
+              className="inline-flex h-10 items-center gap-2 rounded-control bg-primary px-4 text-body font-semibold text-white hover:bg-primary-hover"
+            >
+              Explore careers
+              <ArrowRightIcon aria-hidden="true" className="size-4" />
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  // The career to continue: the in-progress enrollment closest to completion,
+  // else the first enrollment. Server data decides what is accessible; nothing
+  // is unlocked or computed here.
+  const inProgress = enrollments
     .filter((e) => (e.progress?.percent ?? 0) < 100)
-    .sort((a, b) => (b.progress?.percent ?? 0) - (a.progress?.percent ?? 0))[0];
+    .sort((a, b) => (b.progress?.percent ?? 0) - (a.progress?.percent ?? 0));
+  const active = inProgress[0] ?? enrollments[0];
+  const track = active.career_track;
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Welcome back{user?.first_name ? `, ${user.first_name}` : ''}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Here&apos;s where you left off.
+      <header>
+        <p className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
+          Active career
         </p>
-      </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-title-app font-semibold text-ink">
+            {track.name}
+          </h1>
+          <StatusPill status="info">Enrolled</StatusPill>
+        </div>
+        <Link
+          to="/my-learning/$trackId"
+          params={{ trackId: String(track.id) }}
+          className="mt-2 inline-flex items-center gap-1 text-body font-medium text-primary hover:text-primary-hover"
+        >
+          View career path
+          <ArrowRightIcon aria-hidden="true" className="size-4" />
+        </Link>
+      </header>
 
-      {isLoading ? (
-        <p className="text-sm text-gray-500">Loading your dashboard...</p>
-      ) : enrollments.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <>
-          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-            <StatTile label="Enrolled careers" value={enrollments.length} />
-            <StatTile label="Lessons completed" value={totalCompleted} />
-            <StatTile label="Overall progress" value={`${overallPercent}%`} />
-          </dl>
+      <ContinueCard enrollment={active} />
 
-          {resumable ? (
-            <ContinueLearning enrollment={resumable} />
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
-              You&apos;ve completed every enrolled career. 🎉{' '}
-              <Link
-                to="/learn"
-                className="font-semibold text-indigo-600 hover:text-indigo-500"
-              >
-                Explore more
-              </Link>
-            </div>
-          )}
-
-          <div>
-            <Link
-              to="/my-learning"
-              className="inline-flex items-center gap-x-1 text-sm font-semibold text-indigo-600 hover:text-indigo-500"
-            >
-              View all my learning
-              <ArrowRightIcon className="size-4" />
-            </Link>
-          </div>
-        </>
-      )}
+      <Link
+        to="/my-learning"
+        className="inline-flex items-center gap-1 text-body font-medium text-primary hover:text-primary-hover"
+      >
+        View all my learning
+        <ArrowRightIcon aria-hidden="true" className="size-4" />
+      </Link>
     </div>
   );
 };

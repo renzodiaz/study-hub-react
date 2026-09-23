@@ -1,81 +1,107 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { ArrowRightIcon } from '@heroicons/react/20/solid';
 
 import { getEnrollments, getPreviewTracks } from '@api/learn';
-import ContentHeading from '@layouts/partials/ContentHeading';
+import Card from '@components/ui/Card';
+import Chip from '@components/ui/Chip';
+import StatusPill from '@components/ui/StatusPill';
+import ProgressMeter from '@components/learn/ProgressMeter';
+import EmptyState from '@components/learn/EmptyState';
 
 // A controlled-access ("Preview") career the learner has been granted access to
-// while it is not yet publicly released. Discovery only — links into the normal
-// TrackDetail experience; deliberately makes no claim about the credential/exam.
+// while it is not yet publicly released (CareerTrackTestAccess — an
+// authorization state, distinct from Enrollment). Discovery only: it links into
+// the normal career page and makes no claim about the credential/exam. Preview
+// is not Free, not public, not published, not Pilot, and not credential
+// evidence.
 const PreviewCard = ({ track }) => (
-  <Link
-    to="/learn/$trackId"
-    params={{ trackId: String(track.id) }}
-    className="group flex flex-col rounded-lg border border-indigo-200 bg-white p-6 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
-  >
-    <div className="flex items-center gap-x-4">
-      <div
-        className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white"
-        style={{ backgroundColor: track.color ?? '#6366f1' }}
-      >
-        {track.icon ?? '📚'}
-      </div>
-      <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600">
-        {track.name}
+  <Card className="flex flex-col p-6">
+    <div className="flex items-start justify-between gap-3">
+      <h3 className="text-card font-semibold text-ink">
+        <Link
+          to="/learn/$trackId"
+          params={{ trackId: String(track.id) }}
+          className="rounded-chip hover:text-primary"
+        >
+          {track.name}
+        </Link>
       </h3>
+      <Chip variant="dashed">Preview</Chip>
     </div>
-    <span className="mt-4 inline-flex w-fit items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
-      Preview — not yet publicly released
-    </span>
-  </Link>
+    <p className="mt-3 grow text-body-sm text-ink-muted">
+      Preview — not yet publicly released.
+    </p>
+    <div className="mt-6">
+      <Link
+        to="/learn/$trackId"
+        params={{ trackId: String(track.id) }}
+        className="inline-flex items-center gap-1 text-body font-medium text-primary hover:text-primary-hover"
+      >
+        View career
+        <ArrowRightIcon aria-hidden="true" className="size-4" />
+      </Link>
+    </div>
+  </Card>
 );
 
+// An enrolled career. A still-Preview enrolled track keeps a subtle dashed
+// Preview chip (Case B), but is shown once, as the enrolled/progress card.
+// Progress is the track-scoped lesson progress the API supplies — never
+// relabelled as Course progress.
 const EnrollmentCard = ({ enrollment, isPreview = false }) => {
   const track = enrollment.career_track;
-  const { percent = 0, completed = 0, total = 0 } = enrollment.progress ?? {};
+  const { completed = 0, total = 0 } = enrollment.progress ?? {};
 
   return (
-    <Link
-      to="/my-learning/$trackId"
-      params={{ trackId: String(track.id) }}
-      className={`group flex flex-col rounded-lg border bg-white p-6 shadow-sm transition hover:shadow-md ${isPreview ? 'border-indigo-200 hover:border-indigo-300' : 'border-gray-200 hover:border-indigo-300'}`}
-    >
-      <div className="flex items-center gap-x-4">
-        <div
-          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white"
-          style={{ backgroundColor: track.color ?? '#6366f1' }}
-        >
-          {track.icon ?? '📚'}
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600">
+    <Card className="flex flex-col p-6">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-card font-semibold text-ink">
+          <Link
+            to="/my-learning/$trackId"
+            params={{ trackId: String(track.id) }}
+            className="rounded-chip hover:text-primary"
+          >
             {track.name}
-          </h3>
-          {isPreview && (
-            <span className="mt-1 inline-flex w-fit items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
-              Preview — not yet publicly released
-            </span>
-          )}
+          </Link>
+        </h3>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <StatusPill status="info">Enrolled</StatusPill>
+          {isPreview ? <Chip variant="dashed">Preview</Chip> : null}
         </div>
+      </div>
+
+      <div className="mt-4 grow">
+        <ProgressMeter completed={completed} total={total} />
       </div>
 
       <div className="mt-6">
-        <div className="flex items-center justify-between text-xs font-medium text-gray-500">
-          <span>
-            {completed} / {total} lessons
-          </span>
-          <span>{percent}%</span>
-        </div>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-          <div
-            className="h-full rounded-full bg-indigo-600 transition-all"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
+        <Link
+          to="/my-learning/$trackId"
+          params={{ trackId: String(track.id) }}
+          className="inline-flex items-center gap-1 text-body font-medium text-primary hover:text-primary-hover"
+        >
+          Continue
+          <ArrowRightIcon aria-hidden="true" className="size-4" />
+        </Link>
       </div>
-    </Link>
+    </Card>
   );
 };
+
+const Section = ({ title, description, children }) => (
+  <section>
+    <h2 className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
+      {title}
+    </h2>
+    {description ? (
+      <p className="mt-1 text-body-sm text-ink-muted">{description}</p>
+    ) : null}
+    <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {children}
+    </div>
+  </section>
+);
 
 const MyLearning = () => {
   const {
@@ -83,10 +109,7 @@ const MyLearning = () => {
     isLoading,
     isError,
     error,
-  } = useQuery({
-    queryKey: ['learn', 'enrollments'],
-    queryFn: getEnrollments,
-  });
+  } = useQuery({ queryKey: ['learn', 'enrollments'], queryFn: getEnrollments });
 
   const { data: previewTracks = [] } = useQuery({
     queryKey: ['learn', 'preview-tracks'],
@@ -97,8 +120,8 @@ const MyLearning = () => {
   // domain records but ONE learning program, so it must appear once. Dedupe by
   // stable CareerTrack id (sqid) — never by title. Enrolled tracks are the
   // learner's primary state, so they render as the enrolled/progress card; a
-  // still-Preview enrolled track keeps a subtle Preview indicator. Preview grants
-  // with no enrollment yet stay under "Preview access".
+  // still-Preview enrolled track keeps a subtle Preview indicator. Preview
+  // grants with no enrollment yet stay under "Preview access".
   const enrolledTrackIds = new Set(
     enrollments.map((e) => e.career_track?.id).filter(Boolean),
   );
@@ -108,53 +131,70 @@ const MyLearning = () => {
   );
 
   return (
-    <>
-      <ContentHeading title="My learning" />
-
-      {previewOnlyTracks.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Preview access
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Careers you can preview before they&apos;re publicly released.
-          </p>
-          <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {previewOnlyTracks.map((track) => (
-              <PreviewCard key={track.id} track={track} />
-            ))}
-          </div>
-        </section>
-      )}
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-title-app font-semibold text-ink">My Learning</h1>
+        <p className="mt-2 text-body text-ink-secondary">
+          Everything you have access to — enrolled or granted.
+        </p>
+      </header>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading your learning...</p>
+        <p aria-busy="true" className="text-body text-ink-secondary">
+          Loading your learning…
+        </p>
       ) : isError ? (
-        <p className="text-sm text-red-600">{error.message}</p>
-      ) : enrollments.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <p className="text-sm text-gray-500">
-            You haven&apos;t enrolled in any careers yet.
-          </p>
-          <Link
-            to="/learn"
-            className="mt-3 inline-block text-sm font-semibold text-indigo-600 hover:text-indigo-500"
-          >
-            Explore careers →
-          </Link>
-        </div>
+        <p className="text-body text-ink-secondary">
+          We couldn&apos;t load your learning just now. Please try again.
+          <span className="sr-only">{error?.message}</span>
+        </p>
+      ) : enrollments.length === 0 && previewOnlyTracks.length === 0 ? (
+        <EmptyState
+          title="You're not on a career yet"
+          description="Enrol in a career to start an ordered path of courses toward a credential."
+          action={
+            <Link
+              to="/learn"
+              className="inline-flex h-10 items-center gap-2 rounded-control bg-primary px-4 text-body font-semibold text-white hover:bg-primary-hover"
+            >
+              Explore careers
+              <ArrowRightIcon aria-hidden="true" className="size-4" />
+            </Link>
+          }
+        />
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {enrollments.map((enrollment) => (
-            <EnrollmentCard
-              key={enrollment.id}
-              enrollment={enrollment}
-              isPreview={previewTrackIds.has(enrollment.career_track?.id)}
-            />
-          ))}
+        <div className="space-y-8">
+          {enrollments.length > 0 ? (
+            <Section title="In progress">
+              {enrollments.map((enrollment) => (
+                <EnrollmentCard
+                  key={enrollment.id}
+                  enrollment={enrollment}
+                  isPreview={previewTrackIds.has(enrollment.career_track?.id)}
+                />
+              ))}
+            </Section>
+          ) : null}
+
+          {previewOnlyTracks.length > 0 ? (
+            <Section
+              title="Preview access — not yet enrolled"
+              description="Careers you can preview before they're publicly released."
+            >
+              {previewOnlyTracks.map((track) => (
+                <PreviewCard key={track.id} track={track} />
+              ))}
+            </Section>
+          ) : null}
         </div>
       )}
-    </>
+
+      <p className="border-t border-line pt-4 text-body-sm text-ink-muted">
+        A career you can preview appears once. If you also enrol in it, the
+        enrolled card is the only one shown and keeps a small Preview mark — the
+        experience is the ordinary one, not a separate mode.
+      </p>
+    </div>
   );
 };
 
