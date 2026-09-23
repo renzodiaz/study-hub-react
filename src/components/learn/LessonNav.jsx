@@ -1,11 +1,17 @@
 import { Link } from '@tanstack/react-router';
 import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/20/solid';
 
+// Named previous/next lesson navigation (§30). It renders the prev/next identity
+// the server supplies in the lesson context; it never fabricates a destination
+// or shows a Next that does not exist. At a course boundary it offers "Back to
+// course" instead. Lesson completion is learning progress only — no credential
+// or assessment implication here.
+
 const CARD =
-  'group flex flex-1 flex-col rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-indigo-300 hover:shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500';
+  'group flex flex-1 flex-col rounded-card border border-line bg-surface px-4 py-3 transition-colors hover:border-line-strong hover:bg-primary-wash';
 
 const Kicker = ({ direction, children }) => (
-  <span className="flex items-center gap-x-1 text-xs font-medium text-gray-500">
+  <span className="flex items-center gap-x-1 text-body-sm font-medium text-ink-muted">
     {direction === 'prev' && (
       <ArrowLeftIcon className="size-3.5" aria-hidden="true" />
     )}
@@ -24,23 +30,18 @@ const LessonLink = ({ direction, kicker, title, lessonId }) => (
     className={`${CARD} ${direction === 'next' ? 'sm:items-end sm:text-right' : ''}`}
   >
     <Kicker direction={direction}>{kicker}</Kicker>
-    <span className="mt-0.5 line-clamp-2 text-sm font-semibold text-gray-900 group-hover:text-indigo-700">
+    <span className="mt-0.5 line-clamp-2 text-body font-semibold text-ink group-hover:text-primary">
       {title}
     </span>
   </Link>
 );
 
-// Shown in place of a lesson at the course boundaries (first lesson's Previous,
-// last lesson's Next). Routes to the course page when we have an accessible
-// track/course, else falls back to browser history. No completion celebration
-// and no credential/assessment implication — lesson completion is learning
-// progress only.
 const CourseOverviewCard = ({ direction, to, onBack }) => {
   const inner = (
     <>
       <Kicker direction={direction}>Course overview</Kicker>
       <span
-        className={`mt-0.5 text-sm font-semibold text-gray-900 group-hover:text-indigo-700 ${direction === 'next' ? 'sm:text-right' : ''}`}
+        className={`mt-0.5 text-body font-semibold text-ink group-hover:text-primary ${direction === 'next' ? 'sm:text-right' : ''}`}
       >
         Back to course
       </span>
@@ -70,13 +71,7 @@ const CourseOverviewCard = ({ direction, to, onBack }) => {
   );
 };
 
-// Rich previous/next. Uses server context (names + section-boundary flag) when
-// available, and degrades to bare ids if a response predates the context
-// contract.
 const LessonNav = ({ context, prevId, nextId, courseOverviewTo, onBack }) => {
-  // When context is present, a null prev/next means a genuine course boundary
-  // (show the overview card). Only fall back to bare ids if the whole context is
-  // absent (a response predating the contract).
   const prev = context
     ? context.prev
     : prevId

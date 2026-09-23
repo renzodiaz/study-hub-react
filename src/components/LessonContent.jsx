@@ -64,7 +64,7 @@ const safeUrl = (url) => {
 //     place we emit a highlighted block, a <pre> can never nest inside a <p>
 //     (which is invalid HTML and triggers a hydration error).
 const InlineCode = ({ children }) => (
-  <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[0.85em] text-pink-700">
+  <code className="rounded-chip bg-surface-code px-1.5 py-0.5 font-mono text-[0.85em] text-ink">
     {children}
   </code>
 );
@@ -78,15 +78,16 @@ const CodeBlock = ({ children }) => {
   const highlight = language && SUPPORTED.has(language);
 
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div className="mt-4 overflow-x-auto rounded-card border border-line">
       <SyntaxHighlighter
         language={highlight ? language : undefined}
         style={oneLight}
         customStyle={{
           margin: 0,
-          borderRadius: '0.5rem',
-          fontSize: '0.85rem',
-          background: '#f8fafc',
+          borderRadius: 0,
+          fontSize: '0.8125rem',
+          lineHeight: 1.7,
+          background: '#f5f4f1',
         }}
         codeTagProps={{ className: 'font-mono' }}
       >
@@ -99,29 +100,35 @@ const CodeBlock = ({ children }) => {
 // Element renderers — plain semantic HTML with lesson typography. No raw HTML
 // from the source is ever rendered (react-markdown ignores it by default; we do
 // not enable rehype-raw), so lesson content cannot inject scripts or handlers.
+// Headings use the interface face (Plex Sans); prose, lists and quotes use the
+// reading face (Literata) at the lesson-prose size. Code stays monospace.
 const COMPONENTS = {
-  h1: (p) => <h2 className="mt-8 text-xl font-bold text-gray-900" {...p} />,
-  h2: (p) => <h2 className="mt-8 text-lg font-bold text-gray-900" {...p} />,
-  h3: (p) => (
-    <h3 className="mt-6 text-base font-semibold text-gray-900" {...p} />
+  h1: (p) => (
+    <h2 className="mt-8 font-sans text-section font-semibold text-ink" {...p} />
   ),
-  p: (p) => <p className="mt-4 text-sm leading-7 text-gray-800" {...p} />,
+  h2: (p) => (
+    <h2 className="mt-8 font-sans text-section font-semibold text-ink" {...p} />
+  ),
+  h3: (p) => (
+    <h3 className="mt-6 font-sans text-card font-semibold text-ink" {...p} />
+  ),
+  p: (p) => <p className="mt-4 font-serif text-prose text-ink" {...p} />,
   ul: (p) => (
     <ul
-      className="mt-4 list-disc space-y-1 pl-6 text-sm text-gray-800"
+      className="mt-4 list-disc space-y-1 pl-6 font-serif text-prose text-ink"
       {...p}
     />
   ),
   ol: (p) => (
     <ol
-      className="mt-4 list-decimal space-y-1 pl-6 text-sm text-gray-800"
+      className="mt-4 list-decimal space-y-1 pl-6 font-serif text-prose text-ink"
       {...p}
     />
   ),
-  li: (p) => <li className="leading-7" {...p} />,
+  li: (p) => <li className="leading-[1.75]" {...p} />,
   blockquote: (p) => (
     <blockquote
-      className="mt-4 border-l-4 border-indigo-300 bg-indigo-50/50 py-2 pl-4 text-sm text-gray-700"
+      className="mt-4 border-l-4 border-primary bg-surface-sunken py-3 pl-4 pr-3 font-serif text-prose text-ink-secondary"
       {...p}
     />
   ),
@@ -131,7 +138,7 @@ const COMPONENTS = {
     return (
       <a
         href={url || undefined}
-        className="font-medium text-indigo-600 underline hover:text-indigo-500"
+        className="font-medium text-primary underline hover:text-primary-hover"
         {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         {...rest}
       />
@@ -141,16 +148,18 @@ const COMPONENTS = {
   code: InlineCode,
   table: (p) => (
     <div className="mt-4 overflow-x-auto">
-      <table className="w-full border-collapse text-sm" {...p} />
+      <table className="w-full border-collapse text-body" {...p} />
     </div>
   ),
   th: (p) => (
     <th
-      className="border-b border-gray-300 px-3 py-2 text-left font-semibold"
+      className="border-b border-line-strong px-3 py-2 text-left font-semibold text-ink"
       {...p}
     />
   ),
-  td: (p) => <td className="border-b border-gray-100 px-3 py-2" {...p} />,
+  td: (p) => (
+    <td className="border-b border-line px-3 py-2 text-ink-secondary" {...p} />
+  ),
 };
 
 // Safe Markdown renderer for engineering lesson prose. Raw HTML is disabled and

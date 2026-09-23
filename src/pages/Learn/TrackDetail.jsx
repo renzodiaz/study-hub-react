@@ -1,126 +1,19 @@
 import { useParams, useLocation, Link } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeftIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  LockClosedIcon,
-} from '@heroicons/react/20/solid';
+import { ArrowLeftIcon } from '@heroicons/react/20/solid';
 
 import { getTrack, getTrackModules, getEnrollments, enroll } from '@api/learn';
 import { getCareerInterview } from '@api/assessments';
 import useBoundedPoll from '@hooks/useBoundedPoll';
-import { classNames } from '@utils/helpers';
+import Card from '@components/ui/Card';
+import Chip from '@components/ui/Chip';
+import Button from '@components/ui/Button';
+import StatusPill from '@components/ui/StatusPill';
+import ProgressMeter from '@components/learn/ProgressMeter';
+import CourseStage from '@components/learn/CourseStage';
+import EmptyState from '@components/learn/EmptyState';
 
 const credentialPending = (data) => data?.credential?.state === 'pending';
-
-const INTERVIEW_LEVEL_LABELS = {
-  junior: 'Junior',
-  mid: 'Mid',
-  senior: 'Senior',
-  staff: 'Staff',
-  principal: 'Principal',
-};
-
-const INTERVIEW_REASON = {
-  career_not_ready: 'Complete every course in this track to unlock it.',
-  no_active_subscription: 'A paid subscription is required to start it.',
-  cooldown_active: 'A cooldown is active before you can try again.',
-  attempts_exhausted: 'You have used all of your interview attempts.',
-};
-
-// Server-authoritative final-interview step. Renders qualification/attempt/
-// credential state as reported; never reconstructs readiness or retry rules.
-const FinalInterviewCard = ({ trackId }) => {
-  const { intervalFn, stopped, reset } = useBoundedPoll({
-    isPending: credentialPending,
-    fast: 5000,
-  });
-
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['career-interview', trackId],
-    queryFn: () => getCareerInterview(trackId),
-    retry: false,
-    // Bounded/backoff polling only while a passed interview's credential is
-    // still being issued; stops after the automatic window (see useBoundedPoll).
-    refetchInterval: intervalFn,
-  });
-
-  if (isLoading || isError || !data) return null; // no interview configured / unavailable
-
-  const { assessment, attempt, credential } = data;
-  const level =
-    INTERVIEW_LEVEL_LABELS[assessment.target_level] ?? assessment.target_level;
-
-  let statusLine;
-  let cta;
-  if (credential.state === 'issued') {
-    statusLine = 'Credential issued.';
-    cta = { to: '/achievements', label: 'View credential' };
-  } else if (attempt.state === 'passed') {
-    statusLine = stopped
-      ? 'Your interview is passed. Your credential is still being issued.'
-      : 'Interview passed — your credential is being issued…';
-  } else if (attempt.state === 'evaluating') {
-    statusLine = 'Your interview is being evaluated.';
-  } else if (attempt.state === 'in_progress' && attempt.can_resume) {
-    statusLine = 'You have an interview in progress.';
-    cta = {
-      to: '/assessment-attempts/$attemptId',
-      params: { attemptId: attempt.active_attempt_id },
-      label: 'Resume final interview',
-    };
-  } else if (attempt.can_start) {
-    statusLine = 'You are ready for the final interview.';
-    cta = {
-      to: '/learn/$trackId/interview',
-      params: { trackId: String(trackId) },
-      label:
-        attempt.state === 'failed'
-          ? 'Retry final interview'
-          : 'Start final interview',
-    };
-  } else {
-    statusLine = INTERVIEW_REASON[attempt.reason] ?? 'Not yet available.';
-  }
-
-  return (
-    <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">
-            Final interview · {level}
-          </h2>
-          <p className="mt-1 text-sm text-gray-700" role="status">
-            {statusLine}
-          </p>
-        </div>
-        {cta && (
-          <Link
-            to={cta.to}
-            params={cta.params}
-            className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-          >
-            {cta.label}
-          </Link>
-        )}
-        {stopped && credentialPending(data) && (
-          <button
-            type="button"
-            onClick={() => {
-              reset();
-              refetch();
-            }}
-            disabled={isFetching}
-            className="inline-flex items-center rounded-md border border-indigo-300 px-3.5 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-          >
-            {isFetching ? 'Checking…' : 'Check again'}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
 
 const LEVEL_LABELS = {
   beginner: 'Beginner',
@@ -131,124 +24,115 @@ const LEVEL_LABELS = {
   principal: 'Principal',
 };
 
-// The backend owns progression; the UI only renders the status it reports.
-// Missing progression (older payload) is treated as available so nothing breaks.
-const courseStatus = (module) => module.progression?.status ?? 'available';
+const INTERVIEW_REASON = {
+  career_not_ready: 'Opens when every course in this career is complete.',
+  no_active_subscription: 'Your plan does not currently include this attempt.',
+  cooldown_active: 'A cooldown is active before you can try again.',
+  attempts_exhausted: 'You have used all of your attempts.',
+};
 
-const StatusBadge = ({ status }) => {
-  if (status === 'completed') {
-    return (
-      <span className="inline-flex items-center gap-x-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-        <CheckCircleIcon className="size-3.5" />
-        Completed
-      </span>
-    );
+// The Final Qualification is the career-level credential step and is the one
+// place bronze (proof) is used on this page. All state is server-authoritative
+// (getCareerInterview); the client never reconstructs readiness or retry rules.
+// "Final Qualification" is the learner-facing name for the existing interview
+// domain object — presentation only.
+const FinalQualificationCard = ({ trackId }) => {
+  const { intervalFn, stopped, reset } = useBoundedPoll({
+    isPending: credentialPending,
+    fast: 5000,
+  });
+
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['career-interview', trackId],
+    queryFn: () => getCareerInterview(trackId),
+    retry: false,
+    refetchInterval: intervalFn,
+  });
+
+  if (isLoading || isError || !data) return null;
+
+  const { assessment, attempt, credential } = data;
+  const level =
+    LEVEL_LABELS[assessment.target_level] ?? assessment.target_level;
+
+  let statusLine;
+  let cta;
+  if (credential.state === 'issued') {
+    statusLine = 'Credential issued.';
+    cta = { to: '/achievements', label: 'View credential' };
+  } else if (attempt.state === 'passed') {
+    statusLine = stopped
+      ? 'Passed. Your credential is still being issued.'
+      : 'Passed — your credential is being issued…';
+  } else if (attempt.state === 'evaluating') {
+    statusLine = 'Your attempt is being evaluated.';
+  } else if (attempt.state === 'in_progress' && attempt.can_resume) {
+    statusLine = 'You have an attempt in progress.';
+    cta = {
+      to: '/assessment-attempts/$attemptId',
+      params: { attemptId: attempt.active_attempt_id },
+      label: 'Resume Final Qualification',
+    };
+  } else if (attempt.can_start) {
+    statusLine = 'You are ready for the Final Qualification.';
+    cta = {
+      to: '/learn/$trackId/interview',
+      params: { trackId: String(trackId) },
+      label:
+        attempt.state === 'failed'
+          ? 'Retry Final Qualification'
+          : 'Start Final Qualification',
+    };
+  } else {
+    statusLine = INTERVIEW_REASON[attempt.reason] ?? 'Not yet available.';
   }
-  if (status === 'locked') {
-    return (
-      <span className="inline-flex items-center gap-x-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-        <LockClosedIcon className="size-3.5" />
-        Locked
-      </span>
-    );
-  }
+
   return (
-    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
-      Available
-    </span>
-  );
-};
-
-// Copy for a locked course: name the prerequisite, or prompt enrollment when the
-// course is only locked because the learner hasn't enrolled (no prerequisite).
-const lockReason = (module) => {
-  const req = module.progression?.unlock_requirement;
-  return req ? `Complete ${req.name} to unlock` : 'Enroll to unlock';
-};
-
-const ModuleRow = ({ module, index, trackId }) => {
-  const status = courseStatus(module);
-  const locked = status === 'locked';
-
-  const body = (
-    <>
-      <div
-        className={classNames(
-          'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
-          locked ? 'bg-gray-100 text-gray-400' : 'bg-indigo-50 text-indigo-600',
-        )}
-      >
-        {index + 1}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h3
-            className={classNames(
-              'text-sm font-semibold',
-              locked ? 'text-gray-400' : 'text-gray-900',
-            )}
-          >
-            {module.title}
-          </h3>
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
-            {LEVEL_LABELS[module.level] ?? module.level}
-          </span>
-          <StatusBadge status={status} />
-          {module.estimated_hours != null && (
-            <span className="inline-flex items-center gap-x-1 text-xs text-gray-500">
-              <ClockIcon className="size-3.5" />
-              {module.estimated_hours}h
-            </span>
-          )}
+    <Card variant="accented" accent="bronze" className="p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-eyebrow font-semibold uppercase tracking-wide text-bronze">
+            Final Qualification · {level}
+          </p>
+          <p className="mt-1 text-body text-ink-secondary" role="status">
+            {statusLine}
+          </p>
         </div>
-        {locked ? (
-          <p className="mt-1 text-sm font-medium text-gray-500">
-            {lockReason(module)}
-          </p>
-        ) : (
-          <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-            {module.description}
-          </p>
-        )}
+        {cta ? (
+          <Link
+            to={cta.to}
+            params={cta.params}
+            className="inline-flex h-10 items-center gap-2 rounded-control bg-bronze-action px-4 text-body font-semibold text-white hover:opacity-90"
+          >
+            {cta.label}
+          </Link>
+        ) : null}
+        {stopped && credentialPending(data) ? (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              reset();
+              refetch();
+            }}
+            busy={isFetching}
+            busyLabel="Checking…"
+          >
+            Check again
+          </Button>
+        ) : null}
       </div>
-    </>
-  );
-
-  // Locked courses stay visible on the roadmap but are NOT navigable and offer
-  // no entry action (the backend also denies direct access).
-  if (locked) {
-    return (
-      <li
-        aria-disabled="true"
-        className="flex cursor-not-allowed items-start gap-x-4 py-5"
-      >
-        {body}
-      </li>
-    );
-  }
-
-  return (
-    <li>
-      <Link
-        to="/learn/$trackId/$courseId"
-        params={{ trackId: String(trackId), courseId: String(module.id) }}
-        className="flex items-start gap-x-4 py-5 hover:bg-gray-50"
-      >
-        {body}
-      </Link>
-    </li>
+    </Card>
   );
 };
 
 const TrackDetail = () => {
   const { trackId } = useParams({ strict: false });
+  const queryClient = useQueryClient();
 
-  // The page is shared by /learn/:id and /my-learning/:id — point "back" at
-  // whichever section the learner came from.
   const pathname = useLocation({ select: (location) => location.pathname });
   const fromMyLearning = pathname.startsWith('/my-learning');
   const backTo = fromMyLearning ? '/my-learning' : '/learn';
-  const backLabel = fromMyLearning ? 'My learning' : 'All careers';
+  const backLabel = fromMyLearning ? 'My Learning' : 'Explore';
 
   const {
     data: track,
@@ -263,27 +147,20 @@ const TrackDetail = () => {
   const {
     data: modules = [],
     isLoading: modulesLoading,
-    isError,
+    isError: modulesError,
   } = useQuery({
     queryKey: ['learn', 'track', trackId, 'modules'],
     queryFn: () => getTrackModules(trackId),
   });
 
-  const queryClient = useQueryClient();
-
   const { data: enrollments = [] } = useQuery({
     queryKey: ['learn', 'enrollments'],
     queryFn: getEnrollments,
   });
-
   const enrollment = enrollments.find((e) => e.career_track?.id === trackId);
 
   const { mutate: enrollMutate, isPending: enrolling } = useMutation({
     mutationFn: () => enroll(trackId),
-    // Enrolling changes progression: the enrollment list (CTA + My Learning) AND
-    // this track's roadmap (['learn','track',trackId] also covers the '…modules'
-    // query by prefix), which now reflects the newly unlocked first course. Only
-    // runs on confirmed success, so a failed enrollment never unlocks the UI.
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['learn', 'enrollments'] });
       queryClient.invalidateQueries({ queryKey: ['learn', 'track', trackId] });
@@ -294,92 +171,120 @@ const TrackDetail = () => {
     <div className="space-y-8">
       <Link
         to={backTo}
-        className="inline-flex items-center gap-x-1 text-sm font-medium text-gray-500 hover:text-gray-700"
+        className="inline-flex items-center gap-1 text-body-sm font-medium text-ink-muted hover:text-ink"
       >
-        <ArrowLeftIcon className="size-4" />
+        <ArrowLeftIcon aria-hidden="true" className="size-4" />
         {backLabel}
       </Link>
 
       {trackLoading ? (
-        <p className="text-sm text-gray-500">Loading...</p>
+        <p aria-busy="true" className="text-body text-ink-secondary">
+          Loading…
+        </p>
       ) : trackError ? (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
-          <p className="text-sm font-medium text-gray-800">
-            This career isn&apos;t available to your account.
-          </p>
-        </div>
-      ) : (
-        track && (
-          <div className="flex items-start justify-between gap-x-4">
-            <div className="flex items-start gap-x-4">
-              <div
-                className="flex size-14 shrink-0 items-center justify-center rounded-xl text-2xl font-semibold text-white"
-                style={{ backgroundColor: track.color ?? '#6366f1' }}
-              >
-                {track.icon ?? '📚'}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+        <EmptyState
+          title="This career isn't available"
+          description="This career isn't available to your account."
+        />
+      ) : track ? (
+        <>
+          <header className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 max-w-2xl">
+                <p className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
+                  Career
+                </p>
+                <h1 className="mt-1 text-title-app font-semibold text-ink">
                   {track.name}
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm text-gray-500">
-                  {track.description}
-                </p>
+                {track.description ? (
+                  <p className="mt-2 text-body text-ink-secondary">
+                    {track.description}
+                  </p>
+                ) : null}
+              </div>
+              <div className="shrink-0">
+                {enrollment ? (
+                  <StatusPill status="info">Enrolled</StatusPill>
+                ) : (
+                  <Button
+                    onClick={() => enrollMutate()}
+                    busy={enrolling}
+                    busyLabel="Enrolling…"
+                  >
+                    Enrol in this career
+                  </Button>
+                )}
               </div>
             </div>
 
-            <div className="shrink-0">
-              {enrollment ? (
-                <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
-                  <CheckCircleIcon className="size-5" />
-                  Enrolled · {enrollment.progress?.percent ?? 0}%
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => enrollMutate()}
-                  disabled={enrolling}
-                  className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
-                >
-                  {enrolling ? 'Enrolling…' : 'Enroll'}
-                </button>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              {track.target_level ? (
+                <Chip>
+                  Target seniority ·{' '}
+                  {LEVEL_LABELS[track.target_level] ?? track.target_level}
+                </Chip>
+              ) : null}
+              {typeof track.courses_count === 'number' ? (
+                <Chip>
+                  {track.courses_count}{' '}
+                  {track.courses_count === 1 ? 'course' : 'courses'}
+                </Chip>
+              ) : null}
+              <Chip>Sequential</Chip>
             </div>
-          </div>
-        )
-      )}
 
-      {!trackError && (
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Modules
-          </h2>
-          {modulesLoading ? (
-            <p className="mt-4 text-sm text-gray-500">Loading modules...</p>
-          ) : isError ? (
-            <p className="mt-4 text-sm text-gray-500">
-              Modules aren&apos;t available to your account.
-            </p>
-          ) : modules.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">
-              No modules in this career yet.
-            </p>
-          ) : (
-            <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white px-6 shadow-sm">
-              {modules.map((module, index) => (
-                <ModuleRow
-                  key={module.id}
-                  module={module}
-                  index={index}
-                  trackId={trackId}
+            {enrollment ? (
+              <div className="max-w-md">
+                <ProgressMeter
+                  completed={enrollment.progress?.completed ?? 0}
+                  total={enrollment.progress?.total ?? 0}
                 />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+              </div>
+            ) : null}
+          </header>
 
-      {!trackError && <FinalInterviewCard trackId={trackId} />}
+          <section className="space-y-3">
+            <h2 className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
+              The path to the credential
+            </h2>
+            {modulesLoading ? (
+              <p aria-busy="true" className="text-body text-ink-secondary">
+                Loading courses…
+              </p>
+            ) : modulesError ? (
+              <p className="text-body text-ink-secondary">
+                Courses aren&apos;t available to your account.
+              </p>
+            ) : modules.length === 0 ? (
+              <p className="text-body text-ink-secondary">
+                No courses in this career yet.
+              </p>
+            ) : (
+              <Card className="overflow-hidden">
+                <ul className="divide-y divide-line">
+                  {modules.map((module, index) => (
+                    <CourseStage
+                      key={module.id}
+                      number={index + 1}
+                      title={module.title}
+                      level={module.level}
+                      description={module.description}
+                      status={module.progression?.status ?? 'available'}
+                      unlockRequirement={module.progression?.unlock_requirement}
+                      estimatedHours={module.estimated_hours}
+                      trackId={trackId}
+                      courseId={module.id}
+                    />
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </section>
+
+          <FinalQualificationCard trackId={trackId} />
+        </>
+      ) : null}
     </div>
   );
 };

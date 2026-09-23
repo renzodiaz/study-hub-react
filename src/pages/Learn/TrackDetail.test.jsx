@@ -140,7 +140,7 @@ describe('TrackDetail roadmap progression', () => {
       },
     ]);
     renderTrack();
-    expect(await screen.findByText('Enroll to unlock')).toBeInTheDocument();
+    expect(await screen.findByText('Enrol to unlock')).toBeInTheDocument();
   });
 
   it('shows a neutral not-available panel when the track load is denied', async () => {
@@ -199,20 +199,22 @@ describe('TrackDetail enrollment refresh', () => {
     renderTrack();
 
     // Pre-enrollment: locked and not navigable.
-    expect(await screen.findByText('Enroll to unlock')).toBeInTheDocument();
+    expect(await screen.findByText('Enrol to unlock')).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /web foundations/i }),
     ).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Enroll' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Enrol in this career' }),
+    );
 
     // Post-enrollment WITHOUT reload: the newly unlocked course is now navigable,
     // the "Enroll to unlock" prompt is gone, and the CTA reflects enrollment.
     expect(
       await screen.findByRole('link', { name: /web foundations/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Enroll to unlock')).not.toBeInTheDocument();
-    expect(screen.getByText(/enrolled ·/i)).toBeInTheDocument();
+    expect(screen.queryByText('Enrol to unlock')).not.toBeInTheDocument();
+    expect(screen.getByText('Enrolled')).toBeInTheDocument();
   });
 
   it('does not optimistically unlock the roadmap when enrollment fails', async () => {
@@ -222,14 +224,16 @@ describe('TrackDetail enrollment refresh', () => {
     enroll.mockRejectedValue(new Error('enrollment failed'));
 
     renderTrack();
-    expect(await screen.findByText('Enroll to unlock')).toBeInTheDocument();
+    expect(await screen.findByText('Enrol to unlock')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Enroll' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Enrol in this career' }),
+    );
 
     await waitFor(() => expect(enroll).toHaveBeenCalledTimes(1));
     // Stays locked; no false enrolled/unlocked state.
-    expect(screen.getByText('Enroll to unlock')).toBeInTheDocument();
-    expect(screen.queryByText(/enrolled ·/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Enrol to unlock')).toBeInTheDocument();
+    expect(screen.queryByText('Enrolled')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /web foundations/i }),
     ).not.toBeInTheDocument();

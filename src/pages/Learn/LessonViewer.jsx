@@ -1,16 +1,17 @@
 import { useParams, useRouter } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeftIcon,
-  CheckCircleIcon,
-  LockClosedIcon,
-} from '@heroicons/react/20/solid';
-
+import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/20/solid';
 import { lazy, Suspense } from 'react';
 
-import { getLesson, completeLesson } from '@api/learn';
+import { getLesson, completeLesson, getModuleSections } from '@api/learn';
+import Card from '@components/ui/Card';
+import Button from '@components/ui/Button';
+import Disclosure from '@components/ui/Disclosure';
+import EmptyState from '@components/learn/EmptyState';
 import LessonContextHeader from '@components/learn/LessonContextHeader';
+import LessonOutline from '@components/learn/LessonOutline';
 import LessonNav from '@components/learn/LessonNav';
+import { courseLessonDisplay } from '@components/learn/lessonProgress';
 
 // Markdown + syntax-highlighting deps are heavy and only needed on a lesson
 // page, so the renderer is code-split out of the initial app bundle.
@@ -21,7 +22,7 @@ const QUIZ_TYPES = ['quiz_gate', 'mcq'];
 const LessonBody = ({ lesson }) => {
   if (lesson.lesson_type === 'video') {
     return (
-      <div className="overflow-hidden rounded-lg bg-black">
+      <div className="overflow-hidden rounded-card bg-ink">
         <video
           controls
           src={lesson.video_url}
@@ -33,21 +34,18 @@ const LessonBody = ({ lesson }) => {
 
   if (QUIZ_TYPES.includes(lesson.lesson_type)) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">
+      <Card className="p-6 text-body text-ink-secondary">
         This is a quiz lesson. Answering and grading arrive in a later phase.
-      </div>
+      </Card>
     );
   }
 
-  // article / narrative — Markdown with safe code highlighting (lazy-loaded).
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <Suspense
-        fallback={<p className="text-sm text-gray-400">Loading lesson…</p>}
-      >
-        <LessonContent markdown={lesson.content} />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={<p className="text-body-sm text-ink-muted">Loading lesson…</p>}
+    >
+      <LessonContent markdown={lesson.content} />
+    </Suspense>
   );
 };
 
@@ -66,15 +64,34 @@ const LessonViewer = () => {
     retry: false,
   });
 
+  const context = lesson?.context;
+  const trackId = context?.career?.id;
+  const courseId = context?.course?.id;
+
+  // The course outline for the orientation sidebar. Only fetched once we know
+  // the accessible career + course from the lesson context; states come from
+  // the same server-derived display as the course page.
+  const { data: sections = [] } = useQuery({
+    queryKey: ['learn', 'module', trackId, courseId, 'sections'],
+    queryFn: () => getModuleSections(trackId, courseId),
+    enabled: Boolean(trackId && courseId),
+  });
+
   const { mutate: markComplete, isPending } = useMutation({
     mutationFn: () => completeLesson(lessonId),
-    // Refetch this lesson (so `completed` flips) and everything else that
-    // shows progress — the curriculum, enrollments, dashboard.
+    // Refetch this lesson (so `completed` flips) and everything else that shows
+    // progress — the curriculum, enrollments, dashboard, outline. Next only
+    // becomes accessible if the server/refetch authorizes it; nothing is
+    // optimistically unlocked here.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['learn'] }),
   });
 
   if (isLoading) {
-    return <p className="text-sm text-gray-500">Loading lesson...</p>;
+    return (
+      <p aria-busy="true" className="text-body text-ink-secondary">
+        Loading lesson…
+      </p>
+    );
   }
 
   if (isError) {
@@ -83,84 +100,97 @@ const LessonViewer = () => {
         <button
           type="button"
           onClick={() => router.history.back()}
-          className="inline-flex items-center gap-x-1 text-sm font-medium text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1 text-body-sm font-medium text-ink-muted hover:text-ink"
         >
-          <ArrowLeftIcon className="size-4" />
+          <ArrowLeftIcon aria-hidden="true" className="size-4" />
           Back
         </button>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
-          <LockClosedIcon className="mx-auto size-8 text-amber-500" />
-          <p className="mt-3 text-sm font-medium text-amber-800">
-            This lesson isn&apos;t available
-          </p>
-          <p className="mt-1 text-sm text-amber-700">
-            This lesson isn&apos;t available to your account.
-          </p>
-        </div>
+        <EmptyState
+          title="This lesson isn't available"
+          description="This lesson isn't available to your account."
+        />
       </div>
     );
   }
 
   const isQuiz = QUIZ_TYPES.includes(lesson.lesson_type);
-  const context = lesson.context;
-  const trackId = context?.career?.id;
-  const courseId = context?.course?.id;
-  // Where "Course overview" / a boundary card should return to — the course page
-  // when we can resolve an accessible track, else browser history.
   const courseOverviewTo =
     trackId && courseId
       ? { to: '/learn/$trackId/$courseId', params: { trackId, courseId } }
       : null;
   const goBack = () => router.history.back();
 
+  const outlineNumber =
+    courseLessonDisplay(sections).find((d) => String(d.id) === String(lessonId))
+      ?.number ?? undefined;
+
+  const outline =
+    sections.length > 0 ? (
+      <LessonOutline sections={sections} activeLessonId={lessonId} />
+    ) : null;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <button
-        type="button"
-        onClick={goBack}
-        className="inline-flex items-center gap-x-1 text-sm font-medium text-gray-500 hover:text-gray-700"
-      >
-        <ArrowLeftIcon className="size-4" />
-        Back
-      </button>
-
-      <LessonContextHeader context={context} />
-
-      <div className="space-y-6 border-t border-gray-100 pt-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          {lesson.title}
-        </h1>
-
-        <LessonBody lesson={lesson} />
-      </div>
-
-      {!isQuiz && (
-        <div className="flex justify-end">
-          {lesson.completed ? (
-            <span className="inline-flex items-center gap-x-1.5 rounded-md bg-green-50 px-3.5 py-2 text-sm font-semibold text-green-700 ring-1 ring-inset ring-green-600/20">
-              <CheckCircleIcon className="size-5" />
-              Completed
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => markComplete()}
-              disabled={isPending}
-              className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
-            >
-              {isPending ? 'Saving…' : 'Mark as complete'}
-            </button>
-          )}
-        </div>
+    <div className="lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-8">
+      {/* Desktop / tablet outline column */}
+      {outline ? (
+        <aside className="hidden lg:block">
+          <div className="sticky top-6">{outline}</div>
+        </aside>
+      ) : (
+        <div className="hidden lg:block" />
       )}
 
-      <LessonNav
-        context={context}
-        prevId={lesson.prev_lesson_id}
-        nextId={lesson.next_lesson_id}
-        courseOverviewTo={courseOverviewTo}
-        onBack={goBack}
-      />
+      <div className="min-w-0 space-y-6">
+        <LessonContextHeader context={context} lessonNumber={outlineNumber} />
+
+        {/* Compact outline (below lg) so orientation is never dropped on small
+            screens — the same course structure, in a Disclosure. */}
+        {outline ? (
+          <div className="lg:hidden">
+            <Disclosure summary="Course outline" variant="section">
+              {outline}
+            </Disclosure>
+          </div>
+        ) : null}
+
+        <div className="space-y-6 border-t border-line pt-6">
+          <h1 className="font-serif text-title font-semibold text-ink">
+            {lesson.title}
+          </h1>
+          <LessonBody lesson={lesson} />
+        </div>
+
+        {!isQuiz ? (
+          <div className="flex items-center justify-between gap-4 border-t border-line pt-6">
+            {lesson.completed ? (
+              <span className="inline-flex items-center gap-1.5 text-body font-medium text-success">
+                <CheckCircleIcon aria-hidden="true" className="size-5" />
+                Completed
+              </span>
+            ) : (
+              <Button
+                onClick={() => markComplete()}
+                busy={isPending}
+                busyLabel="Saving…"
+              >
+                Mark as complete
+              </Button>
+            )}
+            <p className="text-body-sm text-ink-muted">
+              Completion records your place. Credentials come from assessments,
+              not from lessons read.
+            </p>
+          </div>
+        ) : null}
+
+        <LessonNav
+          context={context}
+          prevId={lesson.prev_lesson_id}
+          nextId={lesson.next_lesson_id}
+          courseOverviewTo={courseOverviewTo}
+          onBack={goBack}
+        />
+      </div>
     </div>
   );
 };
