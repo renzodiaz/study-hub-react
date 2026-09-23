@@ -58,12 +58,10 @@ describe('interview intro', () => {
     expect(
       await screen.findByText('Full-Stack Ruby — Senior Interview'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('Final interview · Senior level'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Final Qualification')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument(); // questions_count
     expect(
-      screen.getByRole('button', { name: /start final interview/i }),
+      screen.getByRole('button', { name: /start final qualification/i }),
     ).toBeEnabled();
   });
 
@@ -82,10 +80,10 @@ describe('interview intro', () => {
     );
     render();
     expect(
-      await screen.findByText(/Complete every course in this track/i),
+      await screen.findByText(/Opens when every course in this career/i),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /start final interview/i }),
+      screen.queryByRole('button', { name: /start final qualification/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -100,7 +98,7 @@ describe('interview intro', () => {
     );
     render();
     expect(
-      await screen.findByRole('button', { name: /resume final interview/i }),
+      await screen.findByRole('link', { name: /resume final qualification/i }),
     ).toBeInTheDocument();
   });
 

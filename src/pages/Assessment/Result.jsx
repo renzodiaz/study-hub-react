@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ClockIcon } from '@heroicons/react/20/solid';
 
-import { getAttemptResult } from '@api/assessments';
+import { getAttemptResult, getAttempt } from '@api/assessments';
 import useBoundedPoll from '@hooks/useBoundedPoll';
 import Card from '@components/ui/Card';
 import Button from '@components/ui/Button';
@@ -20,11 +20,6 @@ const TARGET_LEVEL_LABEL = {
   principal: 'Principal',
 };
 
-// Knowledge credentials are always the mid_senior band; any other target level
-// means this is a career interview → a SeniorityBadge, not a course Certificate.
-const isInterviewResult = (data) =>
-  data?.target_level && data.target_level !== 'mid_senior';
-
 // Learner-safe result. While the backend reports evaluation_pending (202), shows
 // an evaluating state and polls (bounded); then renders the authoritative
 // pass/fail. The verdict and score shown are always the server's.
@@ -39,6 +34,16 @@ export default function AssessmentResult({ attemptId, initialData }) {
     initialData,
     retry: false,
     refetchInterval: intervalFn,
+  });
+
+  // Server-authoritative modality: an interview earns a Seniority Badge, a
+  // knowledge assessment a Course Certificate. Read from the owner-scoped
+  // attempt endpoint — never inferred from target_level (which is `mid_senior`
+  // for both a Mid-Senior course assessment and the Mid-Senior qualification).
+  const { data: attemptMeta } = useQuery({
+    queryKey: ['attempt', attemptId],
+    queryFn: () => getAttempt(attemptId),
+    retry: false,
   });
 
   const checkAgain = () => {
@@ -103,7 +108,7 @@ export default function AssessmentResult({ attemptId, initialData }) {
   }
 
   const passed = data.passed;
-  const interview = isInterviewResult(data);
+  const interview = attemptMeta?.kind === 'interview';
 
   return (
     <div className="mx-auto max-w-2xl p-6">
