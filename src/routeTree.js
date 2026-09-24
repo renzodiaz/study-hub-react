@@ -11,6 +11,8 @@ import Calendar from '@pages/Calendar/Index';
 import Documents from '@pages/Documents/Index';
 import Login from '@pages/Auth/Login';
 import Register from '@pages/Auth/Register';
+import ForgotPassword from '@pages/Auth/ForgotPassword';
+import ResetPassword from '@pages/Auth/ResetPassword';
 import Projects from '@pages/Projects/Index';
 import Reports from '@pages/Reports/Index';
 import Settings from '@pages/Settings/Index';
@@ -108,6 +110,27 @@ const registerRoute = createRoute({
       throw redirect({ to: '/' });
     }
   },
+});
+
+// Public request page — like login/register, redirect away if already signed in.
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => authLayoutRoute,
+  path: '/forgot-password',
+  component: ForgotPassword,
+  beforeLoad: ({ context }) => {
+    if (context.user) {
+      throw redirect({ to: '/' });
+    }
+  },
+});
+
+// Reached from the emailed link. Intentionally NOT guarded on auth state: the
+// link must always resolve (even for a user still signed in elsewhere), and a
+// successful reset clears any stale client auth state itself.
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => authLayoutRoute,
+  path: '/reset-password',
+  component: ResetPassword,
 });
 
 const projectsRoute = createRoute({
@@ -278,7 +301,12 @@ export const routeTree = rootRoute.addChildren([
     studyHubRoute,
     studyHubEditorRoute,
   ]),
-  authLayoutRoute.addChildren([loginRoute, registerRoute]),
+  authLayoutRoute.addChildren([
+    loginRoute,
+    registerRoute,
+    forgotPasswordRoute,
+    resetPasswordRoute,
+  ]),
   chromelessLayoutRoute.addChildren([assessmentAttemptRoute]),
   verifyCredentialRoute,
   pricingRoute,

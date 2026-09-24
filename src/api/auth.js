@@ -87,3 +87,64 @@ export const logout = async () => {
     credentials: 'include',
   });
 };
+
+// Password recovery (AUTH-EMAIL-2). Both calls are public (no auth cookie
+// required). The backend is deliberately enumeration-safe, so a successful
+// request tells us nothing about whether the address has an account — we always
+// surface the same generic success.
+export const requestPasswordReset = async ({ email }) => {
+  const res = await fetch(`${API_BASE}/api/v1/auth/password/forgot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+
+  if (res.status === 429) {
+    throw new Error('Too many requests. Please wait a moment and try again.');
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      body.errors?.join(', ') ?? 'Could not send reset instructions',
+    );
+  }
+
+  const data = await res.json().catch(() => ({}));
+  return { message: data.message };
+};
+
+// Distinguishes an invalid/expired link (code 'invalid_token') from a password
+// policy failure (code 'invalid_password') and rate limiting (429), so the UI
+// can react without ever learning whether an account exists. The reset token is
+// used only for this request and is never persisted client-side.
+export const resetPassword = async ({
+  token,
+  password,
+  password_confirmation,
+}) => {
+  const res = await fetch(`${API_BASE}/api/v1/auth/password/reset`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ token, password, password_confirmation }),
+  });
+
+  if (res.status === 429) {
+    const err = new Error(
+      'Too many requests. Please wait a moment and try again.',
+    );
+    err.code = 'rate_limited';
+    throw err;
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(
+      body.errors?.join(', ') ?? 'Could not reset your password',
+    );
+    err.code = body.code ?? 'error';
+    throw err;
+  }
+
+  return res.json().catch(() => ({}));
+};
