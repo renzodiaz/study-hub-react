@@ -34,8 +34,9 @@ const isKnowledge = (cert) => cert.credential_kind === 'knowledge';
 // human "credential number".
 const publicUrl = (token) => `${window.location.origin}/verify/${token}`;
 
-// LinkedIn's "Add to profile" deep link. The credential URL is the existing
-// verification link; no fabricated LinkedIn credential id.
+// LinkedIn's "Add to profile" deep link. certUrl is the existing verification
+// link; certId is the human-facing credential identifier (a supported LinkedIn
+// field) — never the opaque public_token.
 const linkedInUrl = (cert) => {
   const params = new URLSearchParams({
     startTask: 'CERTIFICATION_NAME',
@@ -43,8 +44,24 @@ const linkedInUrl = (cert) => {
     organizationName: 'Study Hub',
     certUrl: publicUrl(cert.public_token),
   });
+  if (cert.public_identifier) params.set('certId', cert.public_identifier);
   return `https://www.linkedin.com/profile/add?${params.toString()}`;
 };
+
+// Human-facing, display-only credential reference (SH-C-… / SH-B-…). Rendered as
+// secondary document metadata in monospace; omitted cleanly when absent (never a
+// guessed fallback, never derived from the token or resource id).
+const CredentialId = ({ value }) =>
+  value ? (
+    <div>
+      <p className="text-caption font-semibold uppercase tracking-wide text-ink-muted">
+        Credential ID
+      </p>
+      <p className="mt-0.5 font-mono text-body-sm text-ink-secondary">
+        {value}
+      </p>
+    </div>
+  ) : null;
 
 const formatDate = (iso) =>
   iso
@@ -170,6 +187,8 @@ const BadgeCard = ({ badge }) => {
         </div>
       ) : null}
 
+      <CredentialId value={badge.public_identifier} />
+
       <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <VerifyLink token={badge.public_token} />
         <CopyLinkButton token={badge.public_token} />
@@ -212,6 +231,8 @@ const CertificateCard = ({ certificate }) => (
         <Chip>{label(certificate.level)}</Chip>
       )}
     </div>
+
+    <CredentialId value={certificate.public_identifier} />
 
     <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-line pt-4">
       <VerifyLink token={certificate.public_token} />
