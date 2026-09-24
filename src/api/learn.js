@@ -115,8 +115,39 @@ export const getSeniorityBadges = () =>
 export const getPublicCertificate = (token) =>
   get(`/api/v1/public/certificates/${token}`, 'Certificate not found');
 
+// Error carrying the HTTP status so the verification page can distinguish a
+// genuine 404 ("not found") from a transient failure (network / 5xx / the
+// backend's controlled 503) — the two must never be shown as the same thing.
+export class PublicCredentialError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.name = 'PublicCredentialError';
+    this.status = status;
+    this.notFound = status === 404;
+  }
+}
+
 // Unified public credential verification (no auth). The backend resolves the
 // token to a Certificate or SeniorityBadge and returns `credential_type` — the
 // frontend never infers type from the token or probes endpoints in sequence.
-export const getPublicCredential = (token) =>
-  get(`/api/v1/public/credentials/${token}`, 'Credential not found');
+// A network rejection surfaces as status 0 (transient), a 404 as not-found.
+export const getPublicCredential = async (token) => {
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/v1/public/credentials/${token}`, {
+      credentials: 'include',
+    });
+  } catch {
+    throw new PublicCredentialError(0, 'Verification temporarily unavailable');
+  }
+  if (res.status === 404) {
+    throw new PublicCredentialError(404, 'Credential not found');
+  }
+  if (!res.ok) {
+    throw new PublicCredentialError(
+      res.status,
+      'Verification temporarily unavailable',
+    );
+  }
+  return normalize(await res.json());
+};
