@@ -32,8 +32,8 @@ describe('ForgotPassword', () => {
     expect(requestPasswordReset.mock.calls[0][0]).toEqual({
       email: 'person@example.com',
     });
+    expect(await screen.findByText(/check your email/i)).toBeInTheDocument();
     const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent(/check your email/i);
     expect(status).toHaveTextContent(/if an account exists/i);
     // No existence disclosure anywhere.
     expect(screen.queryByText(/no account/i)).not.toBeInTheDocument();
