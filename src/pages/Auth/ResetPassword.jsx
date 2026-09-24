@@ -2,28 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { useForm } from '@tanstack/react-form';
-import InputPassword from '@components/InputPassword';
+import { Button, Banner } from '@components/ui';
 import { resetPassword } from '@/api/auth';
 import { useAuth } from '@hooks/useAuth';
+import AuthShell from './AuthShell';
+import AuthField from './AuthField';
 
-const AuthCard = ({ title, children }) => (
-  <>
-    <div className="sm:mx-auto sm:w-full sm:max-w-md">
-      <img
-        alt="Study Hub"
-        src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
-        className="mx-auto h-10 w-auto"
-      />
-      <h2 className="mt-6 text-center text-2xl/9 font-bold tracking-tight text-gray-900">
-        {title}
-      </h2>
-    </div>
-    <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-[480px]">
-      <div className="bg-white px-6 py-12 shadow-sm sm:rounded-lg sm:px-12">
-        {children}
-      </div>
-    </div>
-  </>
+// A TanStack navigation link styled as a full-width primary action, for the
+// terminal states (continue to sign in / request a new link) where the control
+// navigates rather than submits.
+const PrimaryLink = ({ to, children }) => (
+  <Link
+    to={to}
+    className="inline-flex h-12 w-full items-center justify-center rounded-control bg-primary px-5 text-body-lg font-semibold text-white hover:bg-primary-hover"
+  >
+    {children}
+  </Link>
 );
 
 // Public reset page reached from the emailed link. Reads the one-time token from
@@ -37,7 +31,7 @@ const ResetPassword = () => {
   // Capture once on first render so cleaning the URL below can't drop it.
   const [token] = useState(() => search?.token ?? '');
   const { setLoggedOut } = useAuth();
-  const headingRef = useRef(null);
+  const resultRef = useRef(null);
 
   // Strip the token from the address bar (and this history entry) after capture.
   // Trade-off: refreshing the cleaned page loses the token, so we surface the
@@ -75,78 +69,59 @@ const ResetPassword = () => {
       }),
   });
 
-  // Move focus to the result heading so the outcome is announced.
+  // Move focus to the result region so the outcome is announced.
   useEffect(() => {
-    if (isSuccess || error) headingRef.current?.focus();
+    if (isSuccess || error) resultRef.current?.focus();
   }, [isSuccess, error]);
 
   const invalidLink = !token || error?.code === 'invalid_token';
 
   if (isSuccess) {
     return (
-      <AuthCard title="Password reset">
-        <div ref={headingRef} tabIndex={-1} role="status">
-          <div className="rounded-md bg-green-50 p-4">
-            <p className="text-sm font-medium text-green-800">
-              Password reset successfully
-            </p>
-            <p className="mt-2 text-sm text-green-700">
-              You can now sign in with your new password.
-            </p>
-          </div>
+      <AuthShell title="Password reset">
+        <div ref={resultRef} tabIndex={-1}>
+          <Banner variant="success" title="Password reset successfully">
+            You can now sign in with your new password.
+          </Banner>
         </div>
         <div className="mt-8">
-          <Link
-            to="/login"
-            className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-          >
-            Continue to sign in
-          </Link>
+          <PrimaryLink to="/login">Continue to sign in</PrimaryLink>
         </div>
-      </AuthCard>
+      </AuthShell>
     );
   }
 
   if (invalidLink) {
     return (
-      <AuthCard title="Reset link problem">
-        <div ref={headingRef} tabIndex={-1} role="alert">
-          <div className="rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-700">
-              This password reset link is invalid or has expired.
-            </p>
-          </div>
+      <AuthShell title="Reset link problem">
+        <div ref={resultRef} tabIndex={-1}>
+          <Banner variant="danger" title="This link is invalid or has expired">
+            Reset links can be used once and expire after a few hours. Request a
+            new one to continue.
+          </Banner>
         </div>
-        <p className="mt-6 text-sm/6 text-gray-600">
-          Reset links can be used once and expire after a few hours. Request a
-          new one to continue.
-        </p>
         <div className="mt-8">
-          <Link
-            to="/forgot-password"
-            className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-          >
-            Request a new link
-          </Link>
+          <PrimaryLink to="/forgot-password">Request a new link</PrimaryLink>
         </div>
-      </AuthCard>
+      </AuthShell>
     );
   }
 
   return (
-    <AuthCard title="Choose a new password">
+    <AuthShell
+      title="Set a new password"
+      subtitle="Signing in on your other devices will be required again."
+    >
       {error && (
-        <div
-          ref={headingRef}
-          tabIndex={-1}
-          role="alert"
-          className="mb-6 rounded-md bg-red-50 p-4"
-        >
-          <p className="text-sm text-red-700">{error.message}</p>
+        <div ref={resultRef} tabIndex={-1}>
+          <Banner variant="danger" className="mb-5">
+            {error.message}
+          </Banner>
         </div>
       )}
+
       <form
-        className="space-y-6"
+        className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -158,19 +133,19 @@ const ResetPassword = () => {
           validators={{
             onChange: ({ value }) =>
               !value
-                ? 'Password is required!'
+                ? 'Password is required'
                 : value.length < 8
                   ? 'Password must have at least 8 characters'
                   : undefined,
           }}
           children={(field) => (
-            <div>
-              <InputPassword
-                field={field}
-                label="New password:"
-                autoComplete="new-password"
-              />
-            </div>
+            <AuthField
+              field={field}
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              hint="At least 8 characters."
+            />
           )}
         />
 
@@ -183,36 +158,27 @@ const ResetPassword = () => {
             },
           }}
           children={(field) => (
-            <div>
-              <InputPassword
-                field={field}
-                label="Confirm new password:"
-                autoComplete="new-password"
-              />
-            </div>
+            <AuthField
+              field={field}
+              label="Confirm new password"
+              type="password"
+              autoComplete="new-password"
+            />
           )}
         />
 
-        <div>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isPending ? 'Resetting...' : 'Reset password'}
-          </button>
-        </div>
-      </form>
-
-      <p className="mt-10 text-center text-sm/6 text-gray-500">
-        <Link
-          to="/login"
-          className="font-semibold text-indigo-600 hover:text-indigo-500"
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          busy={isPending}
+          busyLabel="Resetting…"
+          className="mt-1"
         >
-          Back to sign in
-        </Link>
-      </p>
-    </AuthCard>
+          Reset password
+        </Button>
+      </form>
+    </AuthShell>
   );
 };
 

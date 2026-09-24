@@ -26,7 +26,7 @@ describe('Login', () => {
     });
 
     const link = await screen.findByRole('link', {
-      name: /forgot your password/i,
+      name: /forgot password/i,
     });
     expect(link).toHaveAttribute('href', '/forgot-password');
   });

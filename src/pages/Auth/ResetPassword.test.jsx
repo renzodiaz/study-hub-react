@@ -29,8 +29,8 @@ function renderPage(initialPath = '/reset-password?token=tok-abc-123') {
 }
 
 async function fillAndSubmit(user, pw = 'brand-new-pass-9', confirm = pw) {
-  await user.type(await screen.findByLabelText('New password:'), pw);
-  await user.type(screen.getByLabelText('Confirm new password:'), confirm);
+  await user.type(await screen.findByLabelText('New password'), pw);
+  await user.type(screen.getByLabelText('Confirm new password'), confirm);
   await user.click(screen.getByRole('button', { name: /reset password/i }));
 }
 
@@ -123,8 +123,8 @@ describe('ResetPassword', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(await screen.findByLabelText('New password:'), 'short');
-    await user.type(screen.getByLabelText('Confirm new password:'), 'short');
+    await user.type(await screen.findByLabelText('New password'), 'short');
+    await user.type(screen.getByLabelText('Confirm new password'), 'short');
     await user.click(screen.getByRole('button', { name: /reset password/i }));
 
     expect(
@@ -138,11 +138,11 @@ describe('ResetPassword', () => {
     renderPage();
 
     await user.type(
-      await screen.findByLabelText('New password:'),
+      await screen.findByLabelText('New password'),
       'brand-new-pass-9',
     );
     await user.type(
-      screen.getByLabelText('Confirm new password:'),
+      screen.getByLabelText('Confirm new password'),
       'different-pass-9',
     );
     await user.click(screen.getByRole('button', { name: /reset password/i }));
