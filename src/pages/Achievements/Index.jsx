@@ -155,6 +155,21 @@ const BadgeCard = ({ badge }) => {
 
       {note ? <p className="text-body-sm text-ink-secondary">{note}</p> : null}
 
+      {/* The authoritative competency standard the badge was earned against
+          (server-provided; omitted cleanly if a legacy badge lacks one). Never
+          derived from the career name or level, never a hard-coded value. */}
+      {badge.competency_standard ? (
+        <div>
+          <p className="text-caption font-semibold uppercase tracking-wide text-ink-muted">
+            Competency standard
+          </p>
+          <p className="mt-0.5 text-body-sm text-ink-secondary">
+            {badge.competency_standard.name} · v
+            {badge.competency_standard.version}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <VerifyLink token={badge.public_token} />
         <CopyLinkButton token={badge.public_token} />
