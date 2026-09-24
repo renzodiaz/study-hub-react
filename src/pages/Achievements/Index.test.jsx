@@ -122,6 +122,86 @@ const seniorityBadge = (extra = {}) => ({
   ...extra,
 });
 
+describe('Credentials — human-facing credential identifier', () => {
+  it('renders the Course Certificate Credential ID (SH-C) from the API', async () => {
+    getCertificates.mockResolvedValue([
+      { ...knowledgeCert, public_identifier: 'SH-C-ABCD-EFGH-JK23' },
+    ]);
+    getSeniorityBadges.mockResolvedValue([]);
+    renderAchievements();
+
+    expect(await screen.findByText('Credential ID')).toBeInTheDocument();
+    expect(screen.getByText('SH-C-ABCD-EFGH-JK23')).toBeInTheDocument();
+    // The opaque token is never shown as the credential id (only inside the href).
+    expect(screen.queryByText('tok_k')).not.toBeInTheDocument();
+  });
+
+  it('renders the SeniorityBadge Credential ID (SH-B) independently of the standard', async () => {
+    getCertificates.mockResolvedValue([]);
+    getSeniorityBadges.mockResolvedValue([
+      seniorityBadge({
+        public_identifier: 'SH-B-MNPQ-RSTV-WXY2',
+        competency_standard: {
+          name: 'Frontend Mid-Senior Competency Standard',
+          version: '1.0',
+        },
+      }),
+    ]);
+    renderAchievements();
+
+    expect(await screen.findByText('SH-B-MNPQ-RSTV-WXY2')).toBeInTheDocument();
+    expect(screen.getByText('Credential ID')).toBeInTheDocument();
+    // Standard still renders from its own field.
+    expect(
+      screen.getByText(/Frontend Mid-Senior Competency Standard · v1\.0/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('tok_b')).not.toBeInTheDocument();
+  });
+
+  it('retains the Credential ID for a revoked credential', async () => {
+    getCertificates.mockResolvedValue([]);
+    getSeniorityBadges.mockResolvedValue([
+      seniorityBadge({
+        status: 'revoked',
+        public_identifier: 'SH-B-2345-6789-ABCD',
+      }),
+    ]);
+    renderAchievements();
+    expect(await screen.findByText('SH-B-2345-6789-ABCD')).toBeInTheDocument();
+    expect(screen.getByText('Revoked')).toBeInTheDocument();
+  });
+
+  it('omits the Credential ID cleanly when absent (no guessed fallback)', async () => {
+    getCertificates.mockResolvedValue([
+      { ...knowledgeCert, public_identifier: undefined },
+    ]);
+    getSeniorityBadges.mockResolvedValue([]);
+    renderAchievements();
+
+    await screen.findByText('React Fundamentals');
+    expect(screen.queryByText('Credential ID')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Unknown|N\/A|Missing|Pending/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('uses the Credential ID (not the token) as the LinkedIn certId, with the verification URL as certUrl', async () => {
+    getCertificates.mockResolvedValue([
+      { ...knowledgeCert, public_identifier: 'SH-C-ABCD-EFGH-JK23' },
+    ]);
+    getSeniorityBadges.mockResolvedValue([]);
+    renderAchievements();
+    await screen.findByText('React Fundamentals');
+
+    const linkedIn = screen.getByRole('link', { name: /add to linkedin/i });
+    const href = decodeURIComponent(linkedIn.getAttribute('href'));
+    expect(href).toContain('certId=SH-C-ABCD-EFGH-JK23');
+    expect(href).toContain('certUrl=');
+    expect(href).toContain('/verify/tok_k'); // URL still carries the token capability
+    expect(href).not.toContain('certId=tok_k'); // never the token as credential id
+  });
+});
+
 describe('Credentials — seniority badge competency standard', () => {
   it('renders the standard name and version from the API (never fabricated)', async () => {
     getCertificates.mockResolvedValue([]);
