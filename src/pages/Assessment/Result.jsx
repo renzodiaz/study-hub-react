@@ -35,15 +35,34 @@ const TARGET_LEVEL_LABEL = {
 // Learner-safe credential notice, driven entirely by the server's authoritative
 // credential.{state,status}. Never asserts issuance from a passed flag, and
 // never leaks an internal reason for the unavailable state.
-function CredentialNotice({ credential }) {
+function CredentialNotice({ credential, stopped, onCheckAgain, checking }) {
   const state = credential?.state;
   if (!state || state === 'not_applicable') return null;
 
   const noun = CREDENTIAL_NOUN[credential.kind] ?? 'credential';
 
   if (state === 'pending') {
+    // Issuance is asynchronous. While the bounded refresh is still running the
+    // page updates itself; once it stops, offer a manual re-check rather than
+    // polling forever or implying failure.
     return (
-      <Banner variant="success" title="Your credential is being issued">
+      <Banner
+        variant="success"
+        title="Your credential is being issued"
+        action={
+          stopped ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onCheckAgain}
+              busy={checking}
+              busyLabel="Checking…"
+            >
+              Check again
+            </Button>
+          ) : undefined
+        }
+      >
         Your {noun} is being issued and will appear in your Credentials shortly.
       </Banner>
     );
@@ -200,7 +219,12 @@ export default function AssessmentResult({ attemptId, initialData }) {
           inferred from passed/kind. */}
       {!data.pilot ? (
         <div className="mt-6">
-          <CredentialNotice credential={data.credential} />
+          <CredentialNotice
+            credential={data.credential}
+            stopped={stopped}
+            onCheckAgain={checkAgain}
+            checking={isFetching}
+          />
         </div>
       ) : null}
 

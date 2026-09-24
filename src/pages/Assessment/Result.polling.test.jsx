@@ -73,6 +73,57 @@ describe('evaluating UI + bounded-poll integration', () => {
     expect(await screen.findByText('Passed')).toBeInTheDocument();
   });
 
+  it('offers "Check again" for a credential still pending after the poll bound', async () => {
+    const reset = vi.fn();
+    useBoundedPoll.mockReturnValue({
+      intervalFn: () => false,
+      stopped: true,
+      reset,
+    });
+    getAttemptResult.mockResolvedValue({
+      passed: true,
+      overall_score: 80,
+      target_level: 'mid_senior',
+      assessment_title: 'Final Frontend Mid-Senior Qualification',
+      dimensions: [],
+      credential: { kind: 'seniority_badge', state: 'pending', status: null },
+    });
+    render();
+
+    expect(
+      await screen.findByText(/will appear in your Credentials/i),
+    ).toBeInTheDocument();
+    const btn = screen.getByRole('button', { name: /check again/i });
+    const calls = getAttemptResult.mock.calls.length;
+    fireEvent.click(btn);
+    expect(reset).toHaveBeenCalled();
+    await screen.findByText(/will appear in your Credentials/i);
+    expect(getAttemptResult.mock.calls.length).toBeGreaterThan(calls);
+  });
+
+  it('does not offer "Check again" for a pending credential while still refreshing', async () => {
+    useBoundedPoll.mockReturnValue({
+      intervalFn: () => 1000,
+      stopped: false,
+      reset: vi.fn(),
+    });
+    getAttemptResult.mockResolvedValue({
+      passed: true,
+      overall_score: 80,
+      target_level: 'mid_senior',
+      assessment_title: 'Final Frontend Mid-Senior Qualification',
+      dimensions: [],
+      credential: { kind: 'seniority_badge', state: 'pending', status: null },
+    });
+    render();
+    expect(
+      await screen.findByText(/will appear in your Credentials/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /check again/i }),
+    ).not.toBeInTheDocument();
+  });
+
   // The bounded-poll predicate: credential issuance is refreshed only while it can
   // legitimately transition, and stops on every terminal state (the hook's timing,
   // bound, and unmount mechanics are covered in useBoundedPoll.test.js).
