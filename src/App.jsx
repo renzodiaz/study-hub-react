@@ -1,6 +1,7 @@
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree';
 import { useAuth } from '@hooks/useAuth';
+import { Spinner } from '@components/ui';
 
 const router = createRouter({
   routeTree,
@@ -13,8 +14,8 @@ const App = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="size-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      <div className="flex h-screen items-center justify-center bg-surface-sunken">
+        <Spinner size="lg" label="Loading Study Hub" />
       </div>
     );
   }

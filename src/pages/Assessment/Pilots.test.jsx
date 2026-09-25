@@ -6,49 +6,55 @@ import Pilots from './Pilots';
 vi.mock('@api/assessments', () => ({ getPilotAssessments: vi.fn() }));
 import { getPilotAssessments } from '@api/assessments';
 
+const Stub = () => <div>stub</div>;
+
 const render = () =>
   renderWithProviders(Pilots, {
     path: '/pilots',
+    initialPath: '/pilots',
     extraRoutes: [
-      {
-        path: '/learn/$trackId/$courseId/assessment',
-        component: () => <div>intro</div>,
-      },
+      { path: '/learn/$trackId/$courseId/assessment', component: Stub },
     ],
   });
 
-describe('Pilots page', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('shows an empty state when the learner has no pilot grants', async () => {
+describe('Pilots', () => {
+  it('shows an empty state when there are no active grants', async () => {
     getPilotAssessments.mockResolvedValue([]);
     render();
     expect(
-      await screen.findByText(/no pilot assessments/i),
+      await screen.findByText(/no pilot assessments right now/i),
     ).toBeInTheDocument();
   });
 
-  it('lists the learner pilot assessments with an Open link into the intro', async () => {
+  it('lists active pilot grants with an Open link, and notes no credential is issued', async () => {
     getPilotAssessments.mockResolvedValue([
       {
-        assessment_id: 'assess_pilot_1',
-        title: 'Browser, HTML Semantics & Accessibility',
-        kind: 'knowledge',
+        assessment_id: 'a1',
+        title: 'JS Foundations — Pilot',
+        course_title: 'JS & TS Foundations',
         target_level: 'mid_senior',
-        course_id: 'course_2',
-        course_title: 'Browser & Accessibility',
-        track_id: 'frontend-ms',
+        track_id: 't1',
+        course_id: 'c1',
       },
     ]);
     render();
 
     expect(
-      await screen.findByText('Browser, HTML Semantics & Accessibility'),
+      await screen.findByText('JS Foundations — Pilot'),
     ).toBeInTheDocument();
-    const open = screen.getByRole('link', { name: /open/i });
-    expect(open).toHaveAttribute(
-      'href',
-      '/learn/frontend-ms/course_2/assessment',
+    expect(
+      screen.getByText(/does not issue a credential/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open/i })).toBeInTheDocument();
+  });
+
+  it('surfaces a load error', async () => {
+    getPilotAssessments.mockRejectedValue(
+      new Error('Failed to load pilot assessments.'),
     );
+    render();
+    expect(
+      await screen.findByText(/failed to load pilot assessments/i),
+    ).toBeInTheDocument();
   });
 });

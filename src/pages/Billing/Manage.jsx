@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { LockClosedIcon } from '@heroicons/react/20/solid';
 
 import {
   getSubscription,
   createPortalSession,
   redirectToPortal,
 } from '@api/billing';
-import ContentHeading from '@layouts/partials/ContentHeading';
+import { Button, Banner, Card, StatusPill, Spinner } from '@components/ui';
 
 // Human copy for backend portal refusal codes. The server stays authoritative.
 const PORTAL_ERROR = {
@@ -28,9 +29,16 @@ const formatDate = (iso) =>
     : null;
 
 // Presentation only — derived from the AUTHORITATIVE flags/status the backend
-// sends. Entitlement itself is `paid_access` (never re-derived here).
+// sends. Entitlement itself is `paid_access` (never re-derived here). Returns a
+// semantic StatusPill status plus plain-language headline/detail.
 function billingState(sub) {
-  if (!sub) return { tone: 'neutral', headline: 'No billing information yet.' };
+  if (!sub) {
+    return {
+      status: 'neutral',
+      label: 'No plan',
+      headline: 'No billing information yet.',
+    };
+  }
 
   const {
     status,
@@ -44,7 +52,8 @@ function billingState(sub) {
 
   if (paid_access && cancel_at_period_end) {
     return {
-      tone: 'warn',
+      status: 'warning',
+      label: 'Ends soon',
       headline: 'Your plan is active and scheduled to end.',
       detail: end
         ? `Access continues until ${end}, then your plan returns to Free.`
@@ -53,38 +62,41 @@ function billingState(sub) {
   }
   if (paid_access) {
     return {
-      tone: 'ok',
+      status: 'success',
+      label: 'Active',
       headline: 'Your subscription is active.',
       detail: end ? `Renews on ${end}.` : undefined,
     };
   }
-  // Non-granting states.
   switch (status) {
     case 'past_due':
     case 'unpaid':
       return {
-        tone: 'error',
+        status: 'danger',
+        label: 'Payment failed',
         headline: 'There’s a problem with your payment.',
         detail:
           'Paid access is paused until the payment is resolved. Use Manage billing to update your payment method.',
       };
     case 'incomplete':
       return {
-        tone: 'warn',
+        status: 'warning',
+        label: 'Incomplete',
         headline: 'Your subscription setup is incomplete.',
         detail:
           'Paid access isn’t active yet. Use Manage billing to finish setting up your payment.',
       };
     case 'paused':
       return {
-        tone: 'warn',
+        status: 'warning',
+        label: 'Paused',
         headline: 'Your subscription is paused.',
         detail: 'Paid access is unavailable while your plan is paused.',
       };
     default:
-      // Free (including a formerly-paid user now back on Free).
       return {
-        tone: 'neutral',
+        status: 'neutral',
+        label: isPaidPlan ? 'Inactive' : 'Free plan',
         headline: isPaidPlan
           ? 'Your plan is not currently active.'
           : 'You’re on the Free plan.',
@@ -93,13 +105,6 @@ function billingState(sub) {
       };
   }
 }
-
-const TONE_CLASS = {
-  ok: 'bg-green-50 text-green-800',
-  warn: 'bg-amber-50 text-amber-800',
-  error: 'bg-red-50 text-red-800',
-  neutral: 'bg-gray-50 text-gray-700',
-};
 
 export default function Manage() {
   const [errorCode, setErrorCode] = useState(null);
@@ -120,10 +125,14 @@ export default function Manage() {
 
   if (isLoading) {
     return (
-      <>
-        <ContentHeading title="Billing" />
-        <p className="p-6 text-sm text-gray-500">Loading billing…</p>
-      </>
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+        <h1 className="text-title font-semibold tracking-tight text-ink">
+          Billing
+        </h1>
+        <div className="mt-8 flex items-center gap-3 text-body text-ink-muted">
+          <Spinner /> Loading billing…
+        </div>
+      </div>
     );
   }
 
@@ -133,58 +142,86 @@ export default function Manage() {
   const planName = subscription?.plan?.name ?? 'Free';
 
   return (
-    <>
-      <ContentHeading title="Billing" />
-      <div className="mx-auto max-w-2xl">
-        {errorCode && (
-          <div className="mb-6 rounded-md bg-amber-50 p-4 text-sm text-amber-800">
-            {PORTAL_ERROR[errorCode] ??
-              'Something went wrong. Please try again.'}
-          </div>
-        )}
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <h1 className="text-title font-semibold tracking-tight text-ink">
+        Billing
+      </h1>
 
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Current plan
-            </h2>
-            <span className="text-lg font-bold text-gray-900">{planName}</span>
+      {errorCode && (
+        <Banner variant="warning" className="mt-6">
+          {PORTAL_ERROR[errorCode] ?? 'Something went wrong. Please try again.'}
+        </Banner>
+      )}
+
+      <Card className="mt-6 overflow-hidden">
+        <div className="p-6">
+          <p className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
+            Current plan
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <span className="text-credential font-semibold text-ink">
+              {planName}
+            </span>
+            <StatusPill status={state.status}>{state.label}</StatusPill>
           </div>
 
-          <div
-            className={`mt-4 rounded-lg p-3 text-sm ${TONE_CLASS[state.tone]}`}
-          >
-            <p className="font-medium">{state.headline}</p>
-            {state.detail && <p className="mt-1">{state.detail}</p>}
-          </div>
+          <p className="mt-3 text-body text-ink">{state.headline}</p>
+          {state.detail && (
+            <p className="mt-1 text-body-sm text-ink-secondary">
+              {state.detail}
+            </p>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             {canCheckout && (
               <Link
                 to="/pricing"
-                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+                className="inline-flex h-10 items-center justify-center rounded-control bg-primary px-4 text-body font-semibold text-white hover:bg-primary-hover"
               >
-                {state.tone === 'neutral' && planName === 'Free'
+                {state.status === 'neutral' && planName === 'Free'
                   ? 'Upgrade'
-                  : 'Choose a plan'}
+                  : 'Compare plans'}
               </Link>
             )}
             {canManage && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setErrorCode(null);
                   portal.mutate();
                 }}
-                disabled={portal.isPending}
-                className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                busy={portal.isPending}
+                busyLabel="Opening…"
               >
-                {portal.isPending ? 'Opening…' : 'Manage billing'}
-              </button>
+                Manage billing
+              </Button>
             )}
           </div>
         </div>
-      </div>
-    </>
+
+        <div className="flex items-center gap-2 border-t border-line bg-surface-raised px-6 py-3">
+          <LockClosedIcon
+            aria-hidden="true"
+            className="size-4 shrink-0 text-ink-muted"
+          />
+          <p className="text-caption text-ink-secondary">
+            Payment details, invoices and receipts are handled in a secure
+            billing portal. Study Hub never stores your card.
+          </p>
+        </div>
+      </Card>
+
+      <Card className="mt-5 p-6">
+        <p className="text-body-sm font-semibold text-ink">If you cancel</p>
+        <p className="mt-1 text-body-sm text-ink-secondary">
+          Your plan runs to the end of the period you have paid for. After that,
+          enrolled learning content closes, but{' '}
+          <strong className="font-semibold text-ink">
+            every credential you have already earned stays valid and verifiable
+          </strong>
+          , and your progress is kept if you come back.
+        </p>
+      </Card>
+    </div>
   );
 }

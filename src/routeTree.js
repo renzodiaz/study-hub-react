@@ -7,14 +7,10 @@ import ChromelessLayout from '@layouts/ChromelessLayout';
 
 // Pages
 import Dashboard from '@pages/Dashboard/Home';
-import Calendar from '@pages/Calendar/Index';
-import Documents from '@pages/Documents/Index';
 import Login from '@pages/Auth/Login';
 import Register from '@pages/Auth/Register';
 import ForgotPassword from '@pages/Auth/ForgotPassword';
 import ResetPassword from '@pages/Auth/ResetPassword';
-import Projects from '@pages/Projects/Index';
-import Reports from '@pages/Reports/Index';
 import Settings from '@pages/Settings/Index';
 import StudyHub from '@pages/StudyHub/Index';
 import Editor from '@pages/StudyHub/Editor';
@@ -78,18 +74,6 @@ const dashboardRoute = createRoute({
   component: Dashboard,
 });
 
-const calendarRoute = createRoute({
-  getParentRoute: () => dashboardLayoutRoute,
-  path: 'calendar',
-  component: Calendar,
-});
-
-const documentsRoute = createRoute({
-  getParentRoute: () => dashboardLayoutRoute,
-  path: 'documents',
-  component: Documents,
-});
-
 const loginRoute = createRoute({
   getParentRoute: () => authLayoutRoute,
   path: '/login',
@@ -131,18 +115,6 @@ const resetPasswordRoute = createRoute({
   getParentRoute: () => authLayoutRoute,
   path: '/reset-password',
   component: ResetPassword,
-});
-
-const projectsRoute = createRoute({
-  getParentRoute: () => dashboardLayoutRoute,
-  path: 'projects',
-  component: Projects,
-});
-
-const reportsRoute = createRoute({
-  getParentRoute: () => dashboardLayoutRoute,
-  path: 'reports',
-  component: Reports,
 });
 
 const settingsRoute = createRoute({
@@ -292,10 +264,6 @@ export const routeTree = rootRoute.addChildren([
     myLearningTrackRoute,
     achievementsRoute,
     careerTracksRoute,
-    calendarRoute,
-    documentsRoute,
-    projectsRoute,
-    reportsRoute,
     settingsRoute,
     billingManageRoute,
     studyHubRoute,
