@@ -1,15 +1,38 @@
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useMutation } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 
 import { updateProfile } from '@api/auth';
 import { useAuth } from '@hooks/useAuth';
-import InputText from '@components/InputText';
-import ContentHeading from '@layouts/partials/ContentHeading';
+import { Button, Banner, Card, Field } from '@components/ui';
 
 const avatarSrc = (avatarUrl, firstName, lastName) =>
   avatarUrl ||
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(`${firstName} ${lastName}`)}&background=6366f1&color=fff`;
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    `${firstName} ${lastName}`,
+  )}&background=0D4A54&color=fff`;
+
+// Binds a TanStack Form field to the design-system Field primitive so the form
+// gets the DS control styling and accessibility (label, aria-describedby error,
+// icon+text error) without duplicating markup.
+const ProfileField = ({ field, label, type = 'text', autoComplete, rows }) => {
+  const { meta } = field.state;
+  const showError = meta.isTouched && meta.errors.length > 0;
+  return (
+    <Field
+      id={field.name}
+      label={label}
+      type={type}
+      rows={rows}
+      autoComplete={autoComplete}
+      value={field.state.value}
+      onChange={field.handleChange}
+      onBlur={field.handleBlur}
+      error={showError ? meta.errors.join(', ') : undefined}
+    />
+  );
+};
 
 const Settings = () => {
   const { user, setLoggedIn } = useAuth();
@@ -36,138 +59,162 @@ const Settings = () => {
   });
 
   return (
-    <>
-      <ContentHeading title="Profile Settings" />
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <h1 className="text-title font-semibold tracking-tight text-ink">
+        Settings
+      </h1>
 
-      <div className="mx-auto max-w-2xl">
-        {error && (
-          <div className="mb-6 rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-700">{error.message}</p>
-          </div>
-        )}
-        {saved && (
-          <div className="mb-6 rounded-md bg-green-50 p-4">
-            <p className="text-sm text-green-700">
-              Profile updated successfully.
+      {error && (
+        <Banner variant="danger" className="mt-6">
+          {error.message}
+        </Banner>
+      )}
+      {saved && (
+        <Banner variant="success" className="mt-6">
+          Profile updated successfully.
+        </Banner>
+      )}
+
+      <Card
+        as="section"
+        aria-labelledby="profile-heading"
+        className="mt-6 overflow-hidden"
+      >
+        <div className="flex items-center gap-5 border-b border-line px-6 py-6">
+          <form.Subscribe
+            selector={(state) => ({
+              avatar_url: state.values.avatar_url,
+              first_name: state.values.first_name,
+              last_name: state.values.last_name,
+            })}
+            children={({ avatar_url, first_name, last_name }) => (
+              <img
+                src={avatarSrc(avatar_url, first_name, last_name)}
+                alt=""
+                className="size-16 rounded-full object-cover"
+              />
+            )}
+          />
+          <div className="min-w-0">
+            <p
+              id="profile-heading"
+              className="text-card font-semibold text-ink"
+            >
+              {user?.first_name} {user?.last_name}
+            </p>
+            <p className="truncate text-body-sm text-ink-muted">
+              {user?.email}
             </p>
           </div>
-        )}
+        </div>
 
-        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
-          {/* Avatar preview */}
-          <div className="flex items-center gap-x-6 border-b border-gray-900/10 px-6 py-8">
-            <form.Subscribe
-              selector={(state) => ({
-                avatar_url: state.values.avatar_url,
-                first_name: state.values.first_name,
-                last_name: state.values.last_name,
-              })}
-              children={({ avatar_url, first_name, last_name }) => (
-                <img
-                  src={avatarSrc(avatar_url, first_name, last_name)}
-                  alt="Avatar preview"
-                  className="size-20 rounded-full object-cover ring-2 ring-white shadow"
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}
+        >
+          <div className="flex flex-col gap-5 px-6 py-6">
+            <p className="text-eyebrow font-semibold uppercase tracking-wide text-ink-muted">
+              Your details
+            </p>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <form.Field
+                name="first_name"
+                validators={{
+                  onChange: ({ value }) =>
+                    !value ? 'First name is required' : undefined,
+                }}
+                children={(field) => (
+                  <ProfileField
+                    field={field}
+                    label="First name"
+                    autoComplete="given-name"
+                  />
+                )}
+              />
+              <form.Field
+                name="last_name"
+                validators={{
+                  onChange: ({ value }) =>
+                    !value ? 'Last name is required' : undefined,
+                }}
+                children={(field) => (
+                  <ProfileField
+                    field={field}
+                    label="Last name"
+                    autoComplete="family-name"
+                  />
+                )}
+              />
+            </div>
+
+            {/* Email is read-only: changing it is not implemented (no fake control). */}
+            <div className="flex flex-col gap-1">
+              <span className="text-body font-medium text-ink">Email</span>
+              <div className="rounded-control border border-line bg-surface-sunken px-3 py-2 text-body text-ink-muted">
+                {user?.email}
+              </div>
+              <p className="text-body-sm text-ink-muted">
+                Email can’t be changed here.
+              </p>
+            </div>
+
+            <form.Field
+              name="avatar_url"
+              children={(field) => (
+                <ProfileField
+                  field={field}
+                  label="Avatar URL"
+                  autoComplete="off"
                 />
               )}
             />
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {user?.first_name} {user?.last_name}
-              </p>
-              <p className="text-sm text-gray-500">{user?.email}</p>
-            </div>
+
+            <form.Field
+              name="bio"
+              children={(field) => (
+                <ProfileField
+                  field={field}
+                  label="Bio"
+                  type="textarea"
+                  rows={4}
+                />
+              )}
+            />
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              form.handleSubmit();
-            }}
-          >
-            <div className="px-6 py-8 space-y-6">
-              {/* Name row */}
-              <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
-                <form.Field
-                  name="first_name"
-                  validators={{
-                    onChange: ({ value }) => (!value ? 'Required' : undefined),
-                  }}
-                  children={(field) => (
-                    <InputText
-                      field={field}
-                      label="First name:"
-                      autoComplete="given-name"
-                    />
-                  )}
-                />
-                <form.Field
-                  name="last_name"
-                  validators={{
-                    onChange: ({ value }) => (!value ? 'Required' : undefined),
-                  }}
-                  children={(field) => (
-                    <InputText
-                      field={field}
-                      label="Last name:"
-                      autoComplete="family-name"
-                    />
-                  )}
-                />
-              </div>
+          <div className="flex items-center justify-end gap-4 border-t border-line px-6 py-4">
+            <span className="text-body-sm text-ink-muted">
+              Nothing is saved until you press Save.
+            </span>
+            <Button type="submit" busy={isPending} busyLabel="Saving…">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Card>
 
-              {/* Email — read-only */}
-              <div>
-                <label className="block text-sm/6 font-medium text-gray-900">
-                  Email:
-                </label>
-                <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                  {user?.email}
-                </div>
-                <p className="mt-1 text-xs text-gray-400">
-                  Email cannot be changed here.
-                </p>
-              </div>
-
-              {/* Avatar URL */}
-              <form.Field
-                name="avatar_url"
-                children={(field) => (
-                  <InputText
-                    field={field}
-                    label="Avatar URL:"
-                    autoComplete="off"
-                  />
-                )}
-              />
-
-              {/* Bio */}
-              <form.Field
-                name="bio"
-                children={(field) => (
-                  <InputText
-                    field={field}
-                    label="Bio:"
-                    as="textarea"
-                    rows={4}
-                  />
-                )}
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-x-4 border-t border-gray-900/10 px-6 py-4">
-              <button
-                type="submit"
-                disabled={isPending}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isPending ? 'Saving...' : 'Save changes'}
-              </button>
-            </div>
-          </form>
+      <Card
+        as="section"
+        className="mt-5 flex flex-wrap items-center justify-between gap-3 p-6"
+      >
+        <div>
+          <p className="text-body font-semibold text-ink">Subscription</p>
+          <p className="mt-0.5 text-body-sm text-ink-secondary">
+            View your plan and manage billing.
+          </p>
         </div>
-      </div>
-    </>
+        <Link
+          to="/billing"
+          className="inline-flex h-10 items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-body font-semibold text-ink hover:bg-primary-wash"
+        >
+          Go to billing
+        </Link>
+      </Card>
+    </div>
   );
 };
 

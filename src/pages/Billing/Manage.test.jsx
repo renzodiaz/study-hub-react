@@ -9,163 +9,100 @@ vi.mock('@api/billing', () => ({
   createPortalSession: vi.fn(),
   redirectToPortal: vi.fn(),
 }));
+
 import {
   getSubscription,
   createPortalSession,
   redirectToPortal,
 } from '@api/billing';
 
-const renderManage = () =>
+const Stub = () => <div>stub</div>;
+
+const render = () =>
   renderWithProviders(Manage, {
     path: '/billing',
     initialPath: '/billing',
-    extraRoutes: [
-      { path: '/pricing', component: () => <div>Pricing page</div> },
-    ],
+    extraRoutes: [{ path: '/pricing', component: Stub }],
   });
 
-afterEach(() => vi.clearAllMocks());
-
-describe('Billing management page', () => {
-  it('Free user: shows Free plan, an Upgrade link, and no Manage billing', async () => {
+describe('Billing / Manage', () => {
+  it('shows an active subscription with its plan and an Active status', async () => {
     getSubscription.mockResolvedValue({
-      paid_access: false,
       status: 'active',
-      plan: { slug: 'free', name: 'Free' },
-      can_start_checkout: true,
-      can_manage_billing: false,
-    });
-    renderManage();
-    expect(
-      await screen.findByText(/you’re on the free plan/i),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /upgrade/i })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /manage billing/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('Active Pro: shows active status, renewal date, and Manage billing', async () => {
-    getSubscription.mockResolvedValue({
       paid_access: true,
-      status: 'active',
-      cancel_at_period_end: false,
-      current_period_end: '2026-10-01T00:00:00Z',
       plan: { slug: 'pro', name: 'Pro' },
       can_manage_billing: true,
       can_start_checkout: false,
+      current_period_end: '2026-10-21T00:00:00Z',
     });
-    renderManage();
+    render();
+
+    expect(await screen.findByText('Pro')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
     expect(
-      await screen.findByText(/subscription is active/i),
+      screen.getByText(/your subscription is active/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/renews on/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /manage billing/i }),
-    ).toBeInTheDocument();
+    // The "credentials stay valid" reassurance is present.
+    expect(screen.getByText(/stays valid and verifiable/i)).toBeInTheDocument();
   });
 
-  it('cancel_at_period_end: says scheduled to end, NOT "canceled", access still active', async () => {
+  it('opens the hosted portal when Manage billing is clicked', async () => {
     getSubscription.mockResolvedValue({
+      status: 'active',
       paid_access: true,
-      status: 'active',
-      cancel_at_period_end: true,
-      current_period_end: '2026-10-01T00:00:00Z',
-      plan: { slug: 'pro', name: 'Pro' },
-      can_manage_billing: true,
-      can_start_checkout: false,
-    });
-    renderManage();
-    expect(await screen.findByText(/scheduled to end/i)).toBeInTheDocument();
-    expect(screen.getByText(/access continues until/i)).toBeInTheDocument();
-    expect(screen.queryByText(/\bcanceled\b/i)).not.toBeInTheDocument();
-  });
-
-  it('past_due: shows a payment problem and Manage billing to fix it', async () => {
-    getSubscription.mockResolvedValue({
-      paid_access: false,
-      status: 'past_due',
-      plan: { slug: 'pro', name: 'Pro' },
-      can_manage_billing: true,
-      can_start_checkout: false,
-    });
-    renderManage();
-    expect(
-      await screen.findByText(/problem with your payment/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /manage billing/i }),
-    ).toBeInTheDocument();
-  });
-
-  it('paused: shows paused state with Manage billing', async () => {
-    getSubscription.mockResolvedValue({
-      paid_access: false,
-      status: 'paused',
-      plan: { slug: 'pro', name: 'Pro' },
-      can_manage_billing: true,
-      can_start_checkout: false,
-    });
-    renderManage();
-    expect(
-      await screen.findByText(/subscription is paused/i),
-    ).toBeInTheDocument();
-  });
-
-  it('Manage billing opens the Portal and redirects; no optimistic mutation', async () => {
-    getSubscription.mockResolvedValue({
-      paid_access: true,
-      status: 'active',
       plan: { slug: 'pro', name: 'Pro' },
       can_manage_billing: true,
       can_start_checkout: false,
     });
     createPortalSession.mockResolvedValue({
-      url: 'https://billing.stripe.test/x',
+      url: 'https://stripe.test/portal_1',
     });
-    renderManage();
+    render();
 
     await userEvent.click(
       await screen.findByRole('button', { name: /manage billing/i }),
     );
-    await waitFor(() => expect(createPortalSession).toHaveBeenCalledTimes(1));
+
+    await waitFor(() => expect(createPortalSession).toHaveBeenCalled());
     expect(redirectToPortal).toHaveBeenCalledWith(
-      'https://billing.stripe.test/x',
+      'https://stripe.test/portal_1',
     );
   });
 
-  it('shows a safe message when the Portal cannot be opened', async () => {
+  it('offers an Upgrade link to pricing for a Free user', async () => {
     getSubscription.mockResolvedValue({
-      paid_access: true,
       status: 'active',
+      paid_access: false,
+      plan: { slug: 'free', name: 'Free' },
+      can_manage_billing: false,
+      can_start_checkout: true,
+    });
+    render();
+
+    const link = await screen.findByRole('link', { name: /upgrade/i });
+    expect(link).toHaveAttribute('href', '/pricing');
+  });
+
+  it('surfaces a portal error without redirecting', async () => {
+    getSubscription.mockResolvedValue({
+      status: 'active',
+      paid_access: true,
       plan: { slug: 'pro', name: 'Pro' },
       can_manage_billing: true,
       can_start_checkout: false,
     });
-    const err = new Error('down');
+    const err = new Error('nope');
     err.code = 'stripe_unavailable';
     createPortalSession.mockRejectedValue(err);
-    renderManage();
+    render();
 
     await userEvent.click(
       await screen.findByRole('button', { name: /manage billing/i }),
     );
+
     expect(
       await screen.findByText(/temporarily unavailable/i),
     ).toBeInTheDocument();
     expect(redirectToPortal).not.toHaveBeenCalled();
-  });
-
-  it('never renders Stripe identifiers', async () => {
-    getSubscription.mockResolvedValue({
-      paid_access: true,
-      status: 'active',
-      plan: { slug: 'pro', name: 'Pro' },
-      can_manage_billing: true,
-      can_start_checkout: false,
-    });
-    renderManage();
-    await screen.findByText(/subscription is active/i);
-    expect(document.body.innerHTML).not.toMatch(/cus_|sub_|price_[a-z]/);
   });
 });

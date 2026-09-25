@@ -8,3 +8,4 @@ export { default as Field } from './Field';
 export { default as Dialog } from './Dialog';
 export { default as Banner } from './Banner';
 export { default as Disclosure } from './Disclosure';
+export { default as Spinner } from './Spinner';
